@@ -32,6 +32,24 @@ class AcceptanceCriterion(ABC):
             True si acepta, False si rechaza
         """
         pass
+    
+    def acceptance_probability(self, delta_E: float, temperature: float) -> float:
+        """
+        Calcula la probabilidad de aceptación (sin decisión)
+        
+        Args:
+            delta_E: Diferencia de energía
+            temperature: Temperatura actual
+        
+        Returns:
+            Probabilidad en [0, 1]
+        """
+        # Por defecto, usa criterio binario
+        if delta_E <= 0:
+            return 1.0
+        if temperature <= 0:
+            return 0.0
+        return np.exp(-delta_E / temperature)
 
 
 class MetropolisCriterion(AcceptanceCriterion):

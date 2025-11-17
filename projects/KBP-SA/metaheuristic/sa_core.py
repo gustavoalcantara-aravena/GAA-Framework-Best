@@ -11,6 +11,7 @@ Referencias:
 from typing import Optional, Callable, Dict, Any, List
 import numpy as np
 import time
+from pathlib import Path
 
 from core.problem import KnapsackProblem
 from core.solution import KnapsackSolution
@@ -92,6 +93,23 @@ class SimulatedAnnealing:
         
         # Estadísticas de ejecución
         self.reset_statistics()
+        
+        # Tracking (opcional)
+        self.tracker = None
+        self.enable_tracking = False
+        self.optimal_value = None  # Para calcular gap
+    
+    def set_tracking(self, tracker, optimal_value: Optional[int] = None):
+        """
+        Habilita tracking de variables
+        
+        Args:
+            tracker: ExecutionTracker
+            optimal_value: Valor óptimo conocido (para calcular gap)
+        """
+        self.tracker = tracker
+        self.enable_tracking = True
+        self.optimal_value = optimal_value
     
     def set_neighborhood(self, neighborhood_fn: Callable):
         """
@@ -130,6 +148,7 @@ class SimulatedAnnealing:
         
         T = self.T0
         iteration = 0
+        prev_temp = T
         
         # Bucle principal SA
         while T > self.T_min and self.evaluator.num_evaluations < self.max_evaluations:
@@ -142,6 +161,12 @@ class SimulatedAnnealing:
                 # Calcular diferencia de energía (minimización: -fitness)
                 delta_E = -(neighbor.value - current.value)
                 
+                # Calcular probabilidad de aceptación
+                acceptance_prob = self.acceptance_criterion.acceptance_probability(
+                    delta_E=delta_E,
+                    temperature=T
+                )
+                
                 # Decidir aceptación
                 accept = self.acceptance_criterion.accept(
                     delta_E=delta_E,
@@ -152,6 +177,8 @@ class SimulatedAnnealing:
                 # Registrar decisión de aceptación
                 self.acceptance_history.append(1 if accept else 0)
                 
+                # Tracking de iteración
+                is_improvement = False
                 if accept:
                     current = neighbor
                     self.accepted_moves += 1
@@ -161,9 +188,42 @@ class SimulatedAnnealing:
                         best = current.copy()
                         best_value = current.value
                         self.improvement_iterations.append(iteration)
+                        is_improvement = True
+                        
+                        if self.enable_tracking and self.tracker:
+                            self.tracker.track_improvement(iteration)
                         
                         if verbose:
                             print(f"Iter {iteration}, T={T:.2f}: Nueva mejor solución = {best_value}")
+                
+                # Tracking detallado
+                if self.enable_tracking and self.tracker:
+                    gap = None
+                    if self.optimal_value is not None and best_value > 0:
+                        gap = ((self.optimal_value - best_value) / self.optimal_value) * 100
+                    
+                    self.tracker.track_iteration(iteration, {
+                        'temperature': T,
+                        'current_value': current.value,
+                        'best_value': best_value,
+                        'current_weight': current.weight,
+                        'best_weight': best.weight,
+                        'is_feasible': current.is_feasible,
+                        'delta_E': delta_E,
+                        'acceptance_prob': acceptance_prob,
+                        'accepted': accept,
+                        'gap_to_optimal': gap,
+                        'is_improvement': is_improvement
+                    })
+                    
+                    self.tracker.track_acceptance(
+                        iteration=iteration,
+                        temperature=T,
+                        delta_E=delta_E,
+                        acceptance_prob=acceptance_prob,
+                        accepted=accept,
+                        improvement=is_improvement
+                    )
                 
                 iteration += 1
                 
@@ -172,7 +232,14 @@ class SimulatedAnnealing:
                     break
             
             # Enfriar temperatura
-            T = self.cooling_schedule.cool(T, iteration)
+            new_T = self.cooling_schedule.cool(T, iteration)
+            
+            # Tracking de cambio de temperatura
+            if self.enable_tracking and self.tracker:
+                temp_level = len(self.temperature_history)
+                self.tracker.track_temperature_change(temp_level, T, new_T)
+            
+            T = new_T
             self.temperature_history.append(T)
             
             # Registrar valor actual
@@ -182,6 +249,11 @@ class SimulatedAnnealing:
         self.elapsed_time = time.time() - self.start_time
         self.final_temperature = T
         self.total_iterations = iteration
+        
+        # Finalizar tracking
+        if self.enable_tracking and self.tracker:
+            self.tracker.calculate_acceptance_windows(self.acceptance_history)
+            self.tracker.finalize_tracking(self.get_statistics())
         
         return best
     
