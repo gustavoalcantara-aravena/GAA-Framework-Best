@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Outputs experimentales
+output/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+!docs/**/*.png
+!docs/**/*.jpg
+
+# JSON outputs excepto configs
+*.json
+!config.json
+!.gaa-config/*.json
+!**/config.yaml
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+*.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+.hypothesis/
+
+# Temporal
+*.tmp
+*.bak
+*.swp
+temp/
+tmp/
+*.orig
+
+# Generated algorithms
+projects/*/generated/*.py
+!projects/*/generated/__init__.py
+
+# PyCharm
+.idea/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Profiling
+*.prof
+*.lprof

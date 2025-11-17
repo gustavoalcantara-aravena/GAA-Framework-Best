@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "rules": [
+    {
+      "name": "Extract terminals from Problem",
+      "trigger": "00-Core/Problem.md",
+      "source_section": "Domain-Operators",
+      "target_file": "01-System/Grammar.md",
+      "target_section": "Terminals",
+      "extraction_pattern": "\\*\\*([A-Z][a-zA-Z0-9_]*)\\*\\*:",
+      "template": "bnf"
+    },
+    {
+      "name": "Extract objective function",
+      "trigger": "00-Core/Problem.md",
+      "source_section": "Mathematical-Model",
+      "target_file": "02-Components/Fitness-Function.md",
+      "target_section": "Objective-Function",
+      "extraction_pattern": null,
+      "template": "python_function"
+    },
+    {
+      "name": "Extract metaheuristic parameters",
+      "trigger": "00-Core/Metaheuristic.md",
+      "source_section": "Configuration",
+      "target_file": "04-Generated/scripts/metaheuristic.py",
+      "target_section": null,
+      "extraction_pattern": "\\*\\*([^*]+)\\*\\*:\\s*(.+)",
+      "template": "python_class"
+    },
+    {
+      "name": "Extract dataset format",
+      "trigger": "00-Core/Problem.md",
+      "source_section": "Solution-Representation",
+      "target_file": "06-Datasets/Dataset-Specification.md",
+      "target_section": "Format-Specification",
+      "extraction_pattern": null,
+      "template": "markdown"
+    }
+  ]
+}

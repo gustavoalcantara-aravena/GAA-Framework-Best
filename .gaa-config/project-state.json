@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "last_updated": null,
+  "project_name": "Unnamed GAA Project",
+  "current_phase": 0,
+  "problem_defined": false,
+  "metaheuristic_selected": false,
+  "scripts_generated": false,
+  "files": {
+    "00-Core/Problem.md": {
+      "hash": null,
+      "last_modified": null,
+      "synced": false
+    },
+    "00-Core/Metaheuristic.md": {
+      "hash": null,
+      "last_modified": null,
+      "synced": false
+    }
+  },
+  "sync_log": []
+}

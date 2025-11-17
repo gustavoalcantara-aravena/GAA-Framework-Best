@@ -1,0 +1,196 @@
+# Configuración del Proyecto VRPTW-GRASP
+# Vehicle Routing Problem with Time Windows usando GRASP
+
+project:
+  name: "VRPTW-GRASP"
+  description: "VRP con Ventanas de Tiempo usando GRASP"
+  version: "1.0.0"
+  created: "2025-11-17"
+
+problem:
+  type: "vrptw"
+  optimization: "minimize"
+  
+  objective: "Minimizar distancia total de rutas"
+  constraints:
+    - "Capacidad de vehículos"
+    - "Ventanas de tiempo de clientes"
+    - "Todos los clientes visitados exactamente una vez"
+  
+  instance_sizes:
+    small: [25, 50]
+    medium: [100]
+    large: [200, 400]
+
+metaheuristic:
+  name: "GRASP"
+  type: "GRASP"
+  
+  parameters:
+    max_iterations: 100
+    alpha: 0.15                   # Parámetro RCL (0=greedy, 1=random)
+    local_search_type: "VND"      # Variable Neighborhood Descent
+    max_candidates: 5             # Tamaño RCL
+    improvement_threshold: 0.01   # Umbral de mejora
+
+  phases:
+    construction:
+      - greedy_randomized_construction
+      - restricted_candidate_list
+      - savings_heuristic
+    
+    local_search:
+      - two_opt
+      - or_opt
+      - relocate
+      - exchange
+      - cross_exchange
+
+gaa:
+  terminals:
+    constructive:
+      - SavingsHeuristic
+      - NearestNeighbor
+      - SweepAlgorithm
+      - ClusterFirst
+      - SequentialInsertion
+      - ParallelInsertion
+    
+    intra_route:
+      - TwoOpt
+      - ThreeOpt
+      - OrOpt
+      - Relocate
+      - Exchange
+    
+    inter_route:
+      - CrossExchange
+      - TwoOptStar
+      - Ejection
+      - SwapRoutes
+      - MergeRoutes
+    
+    perturbation:
+      - RandomRemoval
+      - WorstRemoval
+      - ShawRemoval
+      - RouteRemoval
+    
+    repair:
+      - GreedyInsertion
+      - RegretInsertion
+      - BestInsertion
+    
+    advanced:
+      - AdaptiveLargeNeighborhood
+      - GuidedLocalSearch
+      - TabuSearch
+      - VariableNeighborhood
+  
+  max_depth: 6
+  min_depth: 3
+  
+  population_size: 80
+  n_generations: 200
+  crossover_rate: 0.7
+  mutation_rate: 0.3
+
+datasets:
+  base_dir: "./datasets"
+  
+  training:
+    path: "./datasets/training"
+    n_instances: 12
+    solomon_instances:
+      R1: ["R101", "R102", "R103"]
+      C1: ["C101", "C102"]
+      RC1: ["RC101", "RC102"]
+  
+  validation:
+    path: "./datasets/validation"
+    n_instances: 6
+    solomon_instances:
+      R1: ["R104", "R105"]
+      C1: ["C103"]
+      RC1: ["RC103"]
+  
+  test:
+    path: "./datasets/test"
+    n_instances: 15
+    solomon_instances:
+      R1: ["R106", "R107", "R108"]
+      C1: ["C104", "C105"]
+      RC1: ["RC104", "RC105"]
+      R2: ["R201", "R202"]
+      C2: ["C201"]
+      RC2: ["RC201"]
+  
+  benchmark:
+    path: "./datasets/benchmark"
+    source: "Solomon Instances"
+    format: "solomon"
+    url: "http://web.cba.neu.edu/~msolomon/problems.htm"
+
+experiments:
+  n_runs: 30
+  random_seeds: [42, 123, 456, 789, 2024]
+  
+  metrics:
+    - total_distance
+    - n_vehicles_used
+    - avg_route_length
+    - time_window_violations
+    - capacity_violations
+    - convergence_iterations
+    - algorithm_size
+    - computational_time
+  
+  timeout: 900  # 15 minutos
+  
+  output:
+    directory: "./generated/results"
+    format: ["json", "csv"]
+    plots: true
+    save_routes: true
+    visualization: true
+
+validation:
+  solution:
+    check_feasibility: true
+    check_capacity: true
+    check_time_windows: true
+    check_coverage: true
+    check_routes: true
+  
+  algorithm:
+    min_size: 5
+    max_size: 200
+    check_syntax: true
+    check_executability: true
+
+logging:
+  level: "INFO"
+  file: "./generated/logs/vrptw_grasp.log"
+  console: true
+  
+  track:
+    - evaluations
+    - best_distance
+    - n_routes
+    - alpha_parameter
+    - rcl_size
+    - local_search_time
+    - construction_time
+    - execution_time
+
+visualization:
+  enable: true
+  save_plots: true
+  
+  plot_types:
+    - route_map
+    - convergence_curve
+    - time_window_gantt
+    - vehicle_utilization
+  
+  output_dir: "./generated/visualizations"

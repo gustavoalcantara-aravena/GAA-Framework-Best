@@ -1,0 +1,156 @@
+# Configuración del Proyecto GCP-ILS
+# Graph Coloring Problem con Iterated Local Search
+
+project:
+  name: "GCP-ILS"
+  description: "Problema de Coloración de Grafos con ILS"
+  version: "1.0.0"
+  created: "2025-11-17"
+
+problem:
+  type: "graph_coloring"
+  optimization: "minimize"
+  
+  objective: "Minimizar número de colores utilizados"
+  constraint: "Vértices adyacentes deben tener colores diferentes"
+  
+  instance_sizes:
+    small: [20, 50]
+    medium: [100, 200]
+    large: [500, 1000]
+
+metaheuristic:
+  name: "Iterated Local Search"
+  type: "ILS"
+  
+  parameters:
+    max_iterations: 500
+    perturbation_strength: 0.2    # Porcentaje de nodos a perturbar
+    local_search_iterations: 100
+    acceptance_criterion: "better_or_equal"
+    restart_threshold: 50         # Reiniciar si no mejora en N iteraciones
+
+  operators:
+    local_search:
+      - kempe_chain_interchange
+      - greedy_recolor
+      - tabu_search_phase
+    
+    perturbation:
+      - random_recolor_subset
+      - shake_colors
+      - destroy_repair_coloring
+
+gaa:
+  terminals:
+    constructive:
+      - GreedyDSATUR
+      - GreedyLargestFirst
+      - RandomSequentialColoring
+      - WelshPowell
+    
+    improvement:
+      - KempeChain
+      - TabuCol
+      - RandomRecolor
+      - GreedyImprovement
+      - LocalSearchColors
+    
+    perturbation:
+      - ShakeKColors
+      - RandomizeSubgraph
+      - DestroyKColors
+      - PartialRecolor
+    
+    merge:
+      - MergeCompatibleColors
+      - ColorClassFusion
+    
+    advanced:
+      - RecursiveColoring
+      - BacktrackSearch
+      - ConstraintPropagation
+  
+  max_depth: 5
+  min_depth: 2
+  
+  population_size: 60
+  n_generations: 150
+  crossover_rate: 0.75
+  mutation_rate: 0.25
+
+datasets:
+  base_dir: "./datasets"
+  
+  training:
+    path: "./datasets/training"
+    n_instances: 15
+    benchmarks:
+      - "myciel3.col"
+      - "myciel4.col"
+      - "queen5_5.col"
+      - "anna.col"
+  
+  validation:
+    path: "./datasets/validation"
+    n_instances: 8
+    benchmarks:
+      - "queen6_6.col"
+      - "david.col"
+  
+  test:
+    path: "./datasets/test"
+    n_instances: 12
+    benchmarks:
+      - "queen7_7.col"
+      - "queen8_8.col"
+      - "miles250.col"
+  
+  benchmark:
+    path: "./datasets/benchmark"
+    source: "DIMACS Challenge"
+    format: ".col"
+
+experiments:
+  n_runs: 30
+  random_seeds: [42, 123, 456, 789, 2024]
+  
+  metrics:
+    - chromatic_number
+    - best_coloring
+    - avg_coloring
+    - conflict_count
+    - convergence_speed
+    - algorithm_complexity
+  
+  timeout: 600
+  
+  output:
+    directory: "./generated/results"
+    format: ["json", "csv"]
+    plots: true
+    save_colorings: true
+
+validation:
+  solution:
+    check_feasibility: true
+    check_conflicts: true
+    verify_chromatic: true
+  
+  algorithm:
+    min_size: 3
+    max_size: 150
+    check_syntax: true
+    check_executability: true
+
+logging:
+  level: "INFO"
+  file: "./generated/logs/gcp_ils.log"
+  console: true
+  
+  track:
+    - evaluations
+    - best_colors
+    - perturbation_count
+    - local_search_iterations
+    - execution_time

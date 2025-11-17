@@ -1,0 +1,60 @@
+{
+  "version": "1.0.0",
+  "project_name": "GAA Framework",
+  "nodes": {
+    "00-Core/Problem.md": {
+      "type": "trigger",
+      "editable": true,
+      "description": "Definición del problema de optimización",
+      "triggers": [
+        "01-System/Grammar.md",
+        "01-System/AST-Nodes.md",
+        "02-Components/Fitness-Function.md",
+        "02-Components/Evaluator.md",
+        "03-Experiments/Instances.md",
+        "03-Experiments/Metrics.md",
+        "06-Datasets/Dataset-Specification.md",
+        "04-Generated/scripts/problem.py"
+      ]
+    },
+    "00-Core/Metaheuristic.md": {
+      "type": "trigger",
+      "editable": true,
+      "description": "Selección y configuración de metaheurística",
+      "triggers": [
+        "02-Components/Search-Operators.md",
+        "02-Components/Fitness-Function.md",
+        "03-Experiments/Experimental-Design.md",
+        "04-Generated/scripts/metaheuristic.py"
+      ]
+    },
+    "01-System/Grammar.md": {
+      "type": "auto_generated",
+      "editable": false,
+      "description": "Gramática BNF con terminales del dominio",
+      "triggers": [
+        "01-System/AST-Nodes.md",
+        "04-Generated/scripts/ast_nodes.py"
+      ]
+    },
+    "02-Components/Fitness-Function.md": {
+      "type": "auto_generated",
+      "editable": false,
+      "description": "Función de evaluación de AST",
+      "triggers": [
+        "04-Generated/scripts/fitness.py"
+      ]
+    },
+    "06-Datasets/Dataset-Specification.md": {
+      "type": "auto_generated",
+      "editable": false,
+      "description": "Especificación de formato de datasets",
+      "triggers": [
+        "04-Generated/scripts/data_loader.py"
+      ]
+    }
+  },
+  "sync_on_edit": true,
+  "validate_before_sync": true,
+  "auto_generate_scripts": true
+}

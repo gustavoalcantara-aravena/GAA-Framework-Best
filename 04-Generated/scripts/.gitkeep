@@ -1,0 +1,8 @@
+# Scripts Python generados automáticamente
+
+Esta carpeta contendrá los scripts .py generados desde los archivos .md
+
+Los scripts se generan ejecutando:
+```bash
+python 05-Automation/sync-engine.py --generate
+```

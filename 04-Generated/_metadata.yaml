@@ -1,0 +1,38 @@
+version: 1.0.0
+type: generated_code
+description: Código Python generado automáticamente desde los archivos .md
+
+scripts:
+  problem.py:
+    status: not_generated
+    source: 00-Core/Problem.md
+    last_generated: null
+    
+  ast_nodes.py:
+    status: not_generated
+    source: 
+      - 01-System/Grammar.md
+      - 01-System/AST-Nodes.md
+    last_generated: null
+    
+  metaheuristic.py:
+    status: not_generated
+    source:
+      - 00-Core/Metaheuristic.md
+      - 02-Components/Search-Operators.md
+    last_generated: null
+    
+  fitness.py:
+    status: not_generated
+    source: 02-Components/Fitness-Function.md
+    last_generated: null
+    
+  data_loader.py:
+    status: not_generated
+    source: 06-Datasets/Dataset-Specification.md
+    last_generated: null
+    
+  main.py:
+    status: not_generated
+    source: orchestrator
+    last_generated: null
