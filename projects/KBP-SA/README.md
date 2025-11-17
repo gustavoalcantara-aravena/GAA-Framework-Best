@@ -1,229 +1,298 @@
-# Proyecto: KBP-SA
+# KBP-SA: Knapsack Problem con Simulated Annealing
 
-## Knapsack Problem con Simulated Annealing
+Framework completo de optimización para el problema de la mochila (0/1 Knapsack) usando Simulated Annealing y generación automática de algoritmos.
 
-**Estado**: ⏳ En configuración  
-**Problema**: Knapsack Problem (0/1)  
-**Metaheurística**: Simulated Annealing
+[![Tests](https://img.shields.io/badge/tests-18%20passing-success)]()
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue)]()
+[![Datasets](https://img.shields.io/badge/datasets-31%20validated-green)]()
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📂 Estructura del Proyecto
 
 ```
 KBP-SA/
-├── problema_metaheuristica.md    # Especificación completa del proyecto
-├── config.yaml                   # Configuración de experimentos
-├── run.py                        # Script principal de ejecución
-├── validate_datasets.py          # Validador de instancias
-├── generate_example_datasets.py  # Generador de ejemplos
-├── INSTRUCTIONS.md               # Guía de ejecución
-├── datasets/
-│   ├── low_dimensional/          # ✅ 10 instancias (n=4-23)
-│   ├── large_scale/              # ✅ 21 instancias (n=100-10000)
-│   ├── INSTANCES_DOCUMENTATION.md # 📖 Documentación completa
-│   ├── training/                 # Para datasets custom
-│   ├── validation/               # Para datasets custom
-│   └── test/                     # Para datasets custom
-└── generated/                    # Resultados y logs
+├── 📁 core/                    # Componentes base del problema
+│   ├── problem.py             # KnapsackProblem (definición)
+│   ├── solution.py            # KnapsackSolution (representación)
+│   └── evaluation.py          # KnapsackEvaluator (métricas)
+│
+├── 📁 operators/               # Operadores de búsqueda
+│   ├── constructive.py        # Construcción de soluciones
+│   ├── improvement.py         # Búsqueda local
+│   ├── perturbation.py        # Perturbaciones
+│   └── repair.py              # Reparación de factibilidad
+│
+├── 📁 metaheuristic/          # Simulated Annealing
+│   ├── sa_core.py             # Motor principal del SA
+│   ├── cooling_schedules.py  # Esquemas de enfriamiento
+│   └── acceptance.py          # Criterios de aceptación
+│
+├── 📁 gaa/                     # Sistema GAA (Generación Automática)
+│   ├── grammar.py             # Gramática BNF
+│   ├── ast_nodes.py           # Nodos del AST
+│   ├── generator.py           # Generador de algoritmos
+│   └── interpreter.py         # Intérprete de AST
+│
+├── 📁 experimentation/        # Framework experimental
+│   ├── runner.py              # Ejecución en batch
+│   ├── metrics.py             # Métricas de calidad
+│   ├── statistics.py          # Análisis estadístico
+│   ├── visualization.py       # Generación de gráficas
+│   └── tracking.py            # Sistema de tracking de variables
+│
+├── 📁 data/                    # Gestión de datos
+│   ├── loader.py              # Carga de instancias
+│   └── validator.py           # Validación de formato
+│
+├── 📁 utils/                   # Utilidades
+│   ├── config.py              # Gestión de configuración
+│   ├── logging.py             # Sistema de logs
+│   └── random.py              # Generadores aleatorios
+│
+├── 📁 datasets/               # 31 instancias benchmark
+│   ├── low_dimensional/       # 10 instancias (n=4-23)
+│   └── large_scale/           # 21 instancias (n=100-10,000)
+│
+├── 📁 tests/                   # Tests unitarios
+│   └── test_core.py           # 18 tests (100% passing)
+│
+├── 📁 scripts/                 # Scripts ejecutables
+│   ├── demo_complete.py       # Demo completo del sistema
+│   ├── demo_experimentation.py # Experimentos con gráficas
+│   ├── demo_acceptance_rate.py # Visualización SA
+│   ├── experiment_large_scale.py # Experimentos large-scale
+│   ├── test_quick.py          # Validación rápida
+│   ├── validate_datasets.py   # Validación de datasets
+│   ├── generate_example_datasets.py # Generación de ejemplos
+│   └── run.py                 # Ejecución principal
+│
+├── 📁 docs/                    # Documentación
+│   ├── QUICKSTART_EJECUTABLE.md # Inicio rápido
+│   ├── COMO_EJECUTAR_EXPERIMENTOS.md # Guía de experimentos
+│   ├── TRACKING_LOGS.md       # Sistema de tracking
+│   ├── README_SISTEMA.md      # Documentación completa
+│   ├── DATASET_STATUS.md      # Estado de datasets
+│   ├── INSTRUCTIONS.md        # Instrucciones generales
+│   ├── QUICKSTART.md          # Quick start general
+│   └── ploteos.md             # Especificaciones de gráficas
+│
+├── 📁 config/                  # Configuración
+│   ├── config.yaml            # Configuración del proyecto
+│   └── problema_metaheuristica.md # Especificación del problema
+│
+├── 📁 output/                  # Resultados (no versionado)
+│   ├── low_dimensional/       # Salidas instancias pequeñas
+│   └── large_scale/           # Salidas instancias grandes
+│
+├── .gitignore                 # Archivos ignorados por Git
+├── requirements.txt           # Dependencias Python
+└── README.md                  # Este archivo
 ```
-
-**📖 Ver documentación completa de instancias**: [datasets/INSTANCES_DOCUMENTATION.md](datasets/INSTANCES_DOCUMENTATION.md)
 
 ---
 
-## 🚀 Inicio Rápido
+## 🚀 Quick Start
 
-### Opción A: Usar Instancias Incluidas (Recomendado)
+### 1. Instalación
 
-**El proyecto ya incluye 31 instancias listas para usar**:
-- ✅ **10 instancias low-dimensional** (n=4-23) - Para testing rápido
-- ✅ **21 instancias large-scale** (n=100-10,000) - Pisinger's benchmark
+```bash
+# Navegar al proyecto
+cd projects/KBP-SA
 
-Ver detalles completos en: [datasets/INSTANCES_DOCUMENTATION.md](datasets/INSTANCES_DOCUMENTATION.md)
-
-```powershell
-# 1. Validar que las instancias se cargan correctamente
-python validate_datasets.py
-
-# 2. Ejecutar optimización
-python run.py
+# Instalar dependencias
+pip install -r requirements.txt
 ```
 
-### Opción B: Generar Instancias de Ejemplo
+### 2. Validación Rápida (10 segundos)
 
-```powershell
-python generate_example_datasets.py
+```bash
+python scripts/test_quick.py
 ```
 
-### Opción C: Agregar tus Propios Datasets
-
-**Formato requerido**:
-
+**Salida esperada:**
 ```
-n W
-v_1 w_1
-v_2 w_2
-...
-v_n w_n
+✅ Todos los datasets válidos
+✅ Sistema operativo correctamente
 ```
 
-**Ejemplo** (`knapsack_10.txt`):
-```
-10 269
-55 95
-10 4
-47 60
-5 32
-4 23
-50 72
-8 80
-61 62
-85 65
-87 46
+### 3. Demo Completo (30 segundos)
+
+```bash
+python scripts/demo_complete.py
 ```
 
-**Coloca tus archivos en**:
-- `datasets/training/*.txt` (para optimizar el AST)
-- `datasets/validation/*.txt` (para validar)
-- `datasets/test/*.txt` (para evaluación final)
+Ejecuta el sistema completo en una instancia pequeña.
+
+### 4. Experimentos con Gráficas (1-2 minutos)
+
+```bash
+python scripts/demo_experimentation.py
+```
+
+**Gráficas generadas en:**
+- `output/low_dimensional/plots_{instance}_TIMESTAMP/`
+
+### 5. Visualización Simulated Annealing
+
+```bash
+python scripts/demo_acceptance_rate.py
+```
+
+Muestra evolución de temperatura y tasa de aceptación.
 
 ---
 
-## 📊 Datasets Incluidos
+## 📊 Datasets
 
 ### Low-Dimensional (10 instancias)
-Instancias pequeñas ideales para desarrollo y debugging:
-- **f1 - f10**: Tamaños de 4 a 23 ítems
-- **Uso**: Validación rápida, testing inicial
-- **Tiempo de resolución**: < 1 segundo
+- **Tamaño**: n=4 a n=23 ítems
+- **Fuente**: Pisinger (2005)
+- **Uso**: Validación y pruebas rápidas
 
-### Large-Scale (21 instancias - Pisinger's Benchmark)
-Instancias estándar para benchmarking serio:
-- **knapPI Type 1**: 7 instancias (uncorrelated)
-- **knapPI Type 2**: 7 instancias (weakly correlated)
-- **knapPI Type 3**: 7 instancias (strongly correlated)
-- **Tamaños**: 100, 200, 500, 1000, 2000, 5000, 10000 ítems
-- **Uso**: Evaluación rigurosa, comparación con estado del arte
+### Large-Scale (21 instancias)
+- **Tamaño**: n=100 a n=10,000 ítems
+- **Series**: knapPI_1, knapPI_2, knapPI_3
+- **Uso**: Evaluación de escalabilidad
 
-**📖 Documentación completa**: [datasets/INSTANCES_DOCUMENTATION.md](datasets/INSTANCES_DOCUMENTATION.md)
+**Total**: ✅ 31 instancias validadas
+
+Ver detalles en: [`docs/DATASET_STATUS.md`](docs/DATASET_STATUS.md)
 
 ---
 
-## 🎯 Uso Recomendado de Instancias
+## 🧪 Tests
+
+```bash
+# Ejecutar todos los tests
+pytest tests/test_core.py -v
+
+# Resultado esperado
+# =================== 18 passed in 0.16s ===================
+```
+
+**Cobertura:**
+- ✅ KnapsackProblem (validación, creación)
+- ✅ KnapsackSolution (operaciones, factibilidad)
+- ✅ KnapsackEvaluator (gap, métricas)
+- ✅ DatasetLoader (carga, validación)
+
+---
+
+## 📈 Sistema de Tracking
+
+El sistema incluye tracking automático de variables durante la optimización:
+
+**Variables trackeadas:**
+- Iteración, temperatura, valores (actual, mejor)
+- Diferencia de energía, probabilidad de aceptación
+- Gap al óptimo, tasa de aceptación
+- Tiempo transcurrido, mejoras acumuladas
+
+**Archivos generados:**
+```
+output/{dataset}/{instance}/
+├── summary.json               # Resumen ejecutivo
+├── tracking_full.csv          # Log por iteración
+├── tracking_temperature.csv   # Log por temperatura
+├── tracking_acceptance.csv    # Decisiones de aceptación
+├── convergence.json           # Datos de convergencia
+└── metadata.json              # Información del experimento
+```
+
+Ver documentación: [`docs/TRACKING_LOGS.md`](docs/TRACKING_LOGS.md)
+
+---
+
+## 📚 Documentación
+
+| Documento | Descripción |
+|-----------|-------------|
+| [`docs/QUICKSTART_EJECUTABLE.md`](docs/QUICKSTART_EJECUTABLE.md) | Guía de inicio rápido ejecutable |
+| [`docs/COMO_EJECUTAR_EXPERIMENTOS.md`](docs/COMO_EJECUTAR_EXPERIMENTOS.md) | Cómo ejecutar experimentos completos |
+| [`docs/TRACKING_LOGS.md`](docs/TRACKING_LOGS.md) | Sistema de logging y tracking |
+| [`docs/README_SISTEMA.md`](docs/README_SISTEMA.md) | Documentación técnica completa |
+| [`docs/DATASET_STATUS.md`](docs/DATASET_STATUS.md) | Estado y validación de datasets |
+
+---
+
+## 🔧 Configuración
+
+### Parámetros del SA
+
+Editar en `config/config.yaml`:
 
 ```yaml
-# Training GAA (desarrollo rápido)
-low_dimensional/f1_*.txt
-low_dimensional/f5_*.txt
-large_scale/knapPI_1_100_*.txt
+simulated_annealing:
+  T0: 100.0                    # Temperatura inicial
+  alpha: 0.95                  # Factor de enfriamiento
+  iterations_per_temp: 100     # Iteraciones por temperatura
+  T_min: 0.01                  # Temperatura mínima
+  max_evaluations: 10000       # Presupuesto máximo
+```
 
-# Validation (ajuste de parámetros)
-low_dimensional/f8_*.txt
-large_scale/knapPI_2_500_*.txt
+### Operadores Disponibles
 
-# Testing (evaluación final)
-large_scale/knapPI_3_1000_*.txt
-large_scale/knapPI_3_2000_*.txt
-
-# Benchmarking (comparación SOTA)
-large_scale/knapPI_*_5000_*.txt
-large_scale/knapPI_*_10000_*.txt
+```python
+from operators.improvement import (
+    OneExchange,        # Intercambio 1-1
+    TwoExchange,        # Intercambio 2-2
+    BitFlip,            # Flip de bit
+    SwapItems           # Swap de ítems
+)
 ```
 
 ---
 
-## 🔬 Validación de Datasets
+## 📊 Resultados
 
-```powershell
-python validate_datasets.py
-```
+### Métricas Calculadas
 
-**Salida esperada**:
-```
-✅ Low-dimensional: 10 instancias válidas
-✅ Large-scale: 21 instancias válidas
-✅ Total: 31 instancias listas para usar
-```
+- **Gap to Optimal**: `((optimal - best) / optimal) * 100`
+- **Success Rate**: Porcentaje de ejecuciones que alcanzan el óptimo
+- **Average Gap**: Gap promedio sobre repeticiones
+- **Convergence Speed**: Iteraciones hasta convergencia
 
-### 2. Ejecutar Optimización
+### Visualizaciones
 
-```powershell
-python run.py
-```
+El sistema genera automáticamente:
 
-El script automáticamente:
-1. Carga instancias desde `datasets/low_dimensional/` y `datasets/large_scale/`
-2. Configura Simulated Annealing con los parámetros de `config.yaml`
-3. Ejecuta la optimización del GAA
-4. Guarda el mejor algoritmo en `generated/results/`
+1. **Boxplots**: Comparación de calidad por algoritmo
+2. **Barras con error**: Gaps promedio con intervalos de confianza
+3. **Scatter plots**: Tiempo vs calidad
+4. **Convergencia**: Evolución del mejor valor
+5. **Temperatura**: Temperatura vs tasa de aceptación
 
 ---
 
-## ⚙️ Configuración
+## 📄 Licencia
 
-Ver archivos completos:
-- **problema_metaheuristica.md** - Especificación del problema y terminales
-- **config.yaml** - Parámetros de experimentos
-- **INSTRUCTIONS.md** - Guía paso a paso
-### Terminales Disponibles (13 operadores)
-- **Constructivos**: GreedyByValue, GreedyByWeight, GreedyByRatio, RandomConstruct
-- **Mejora**: FlipBestItem, FlipWorstItem, OneExchange, TwoExchange
-- **Perturbación**: RandomFlip, ShakeByRemoval, DestroyRepair
-- **Reparación**: RepairByRemoval, RepairByGreedy
-
-### Parámetros Simulated Annealing
-- **Temperatura inicial**: 100.0
-- **Factor enfriamiento**: 0.95 (geométrico)
-- **Iteraciones por temperatura**: 100
-- **Max evaluaciones**: 10,000
+Ver [LICENSE](../../LICENSE) en el repositorio raíz.
 
 ---
 
-## 📚 Referencias y Benchmarks
+## 👤 Autor
 
-### Origen de Instancias
-
-**Low-dimensional**: Instancias clásicas de la literatura  
-**Large-scale**: Pisinger's benchmark (2005)
-- **Paper**: "Where are the hard knapsack problems?"
-- **URL**: http://hjemmesider.diku.dk/~pisinger/codes.html
-- **Citación**: Pisinger, D. (2005). Computers & Operations Research, 32(9), 2271-2284
-
-### Otras Fuentes (opcionales)
-- **OR-Library**: http://people.brunel.ac.uk/~mastjjb/jeb/orlib/knapsack.html
-- **MIPLIB**: https://miplib.zib.de/
+**Gustavo Alcántara-Aravena**
+- GitHub: [@gustavoalcantara-aravena](https://github.com/gustavoalcantara-aravena)
+- Repositorio Principal: [GAA-Framework](https://github.com/gustavoalcantara-aravena/GAA-Framework)
 
 ---
 
-## 📖 Documentación
+**⭐ Estado del Proyecto**
 
-- **Especificación del problema**: [problema_metaheuristica.md](problema_metaheuristica.md)
-- **Instancias disponibles**: [datasets/INSTANCES_DOCUMENTATION.md](datasets/INSTANCES_DOCUMENTATION.md)
-- **Guía de ejecución**: [INSTRUCTIONS.md](INSTRUCTIONS.md)
-- **Configuración**: [config.yaml](config.yaml)
-
----
-
-**Estado**: ✅ Listo para ejecutar  
-**Instancias**: 31 disponibles (10 low-dim + 21 large-scale)  
-**Última actualización**: 2025-11-17
-
----
-
-## ✅ Checklist
-
-- [ ] Datasets agregados en `datasets/training/`
-- [ ] Datasets agregados en `datasets/validation/`
-- [ ] Datasets agregados en `datasets/test/`
-- [ ] Especificación revisada en `problema_metaheuristica.md`
-- [ ] Scripts generados
-- [ ] Experimentos ejecutados
-- [ ] Resultados analizados
+| Componente | Estado |
+|------------|--------|
+| Core (Problem, Solution, Evaluation) | ✅ Producción |
+| Operadores (14 operadores) | ✅ Completo |
+| Simulated Annealing | ✅ Funcional |
+| Sistema GAA | ✅ Implementado |
+| Experimentación | ✅ Completo |
+| Tracking | ✅ Implementado |
+| Tests (18 tests) | ✅ 100% passing |
+| Datasets (31 instancias) | ✅ Validados |
+| Documentación | ✅ Completa |
 
 ---
 
-## 📝 Notas
-
-Este proyecto forma parte del framework GAA (Generación Automática de Algoritmos).
-Ver documentación principal en: `../../GAA-Agent-System-Prompt.md`
+**Última actualización**: Diciembre 2024
