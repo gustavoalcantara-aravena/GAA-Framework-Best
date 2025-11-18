@@ -38,7 +38,8 @@ KBP-SA/
 │   ├── runner.py              # Ejecución en batch
 │   ├── metrics.py             # Métricas de calidad
 │   ├── statistics.py          # Análisis estadístico
-│   ├── visualization.py       # Generación de gráficas
+│   ├── visualization.py       # Generación de gráficas (SA avanzadas)
+│   ├── ast_visualization.py   # Visualización de árboles sintácticos
 │   └── tracking.py            # Sistema de tracking de variables
 │
 ├── 📁 data/                    # Gestión de datos
@@ -59,8 +60,14 @@ KBP-SA/
 │
 ├── 📁 scripts/                 # Scripts ejecutables
 │   ├── demo_complete.py       # Demo completo del sistema
-│   ├── demo_experimentation.py # Experimentos con gráficas
+│   ├── demo_experimentation.py # Experimentos con gráficas (TODAS las instancias)
 │   ├── demo_acceptance_rate.py # Visualización SA
+│   ├── test_single_instance.py # Test con una instancia (f1)
+│   ├── test_all_low_dimensional.py # Test de TODAS las instancias + reporte
+│   ├── test_gap_visualization.py # Test de gap evolution
+│   ├── test_acceptance_visualization.py # Suite completa SA (6 gráficas)
+│   ├── test_ast_visualization.py # Test renderizado AST
+│   ├── quick_ast_test.py      # Validación rápida Graphviz
 │   ├── experiment_large_scale.py # Experimentos large-scale
 │   ├── test_quick.py          # Validación rápida
 │   ├── validate_datasets.py   # Validación de datasets
@@ -71,6 +78,7 @@ KBP-SA/
 │   ├── QUICKSTART_EJECUTABLE.md # Inicio rápido
 │   ├── COMO_EJECUTAR_EXPERIMENTOS.md # Guía de experimentos
 │   ├── TRACKING_LOGS.md       # Sistema de tracking
+│   ├── SA_VISUALIZER_IMPLEMENTATION_PLAN.md # Plan de visualizaciones SA
 │   ├── README_SISTEMA.md      # Documentación completa
 │   ├── DATASET_STATUS.md      # Estado de datasets
 │   ├── INSTRUCTIONS.md        # Instrucciones generales
@@ -102,6 +110,13 @@ cd projects/KBP-SA
 
 # Instalar dependencias
 pip install -r requirements.txt
+
+# Instalar Graphviz (para visualización AST)
+pip install graphviz
+
+# Instalar ejecutable Graphviz (Windows)
+winget install graphviz
+# O descargar desde: https://graphviz.org/download/
 ```
 
 ### 2. Validación Rápida (10 segundos)
@@ -124,14 +139,22 @@ python scripts/demo_complete.py
 
 Ejecuta el sistema completo en una instancia pequeña.
 
-### 4. Experimentos con Gráficas (1-2 minutos)
+### 4. Experimentos con Gráficas (2-5 minutos)
 
 ```bash
 python scripts/demo_experimentation.py
 ```
 
-**Gráficas generadas en:**
-- `output/low_dimensional/plots_{instance}_TIMESTAMP/`
+**Ejecuta experimentos con TODAS las instancias low-dimensional (10 instancias)**:
+- 3 algoritmos GAA generados
+- 3 repeticiones por instancia
+- Total: 90 ejecuciones (10 × 3 × 3)
+
+**Todas las visualizaciones en UNA sola carpeta:**
+- `output/low_dimensional_YYYYMMDD_HHMMSS/`
+  - Gráficas estadísticas (boxplot, bars, scatter)
+  - Gráficas SA (gap_evolution, acceptance_rate, delta_e_distribution)
+  - **AST del mejor algoritmo (best_algorithm_ast.png)**
 
 ### 5. Visualización Simulated Annealing
 
@@ -140,6 +163,55 @@ python scripts/demo_acceptance_rate.py
 ```
 
 Muestra evolución de temperatura y tasa de aceptación.
+
+### 6. Test Completo de Visualizaciones SA (Nuevo)
+
+```bash
+python scripts/test_acceptance_visualization.py
+```
+
+**Ejecuta SA con TODAS las instancias low-dimensional**:
+- Visualizaciones detalladas de la primera instancia (más pequeña)
+- Tracking completo de variables SA
+
+**Genera 6 gráficas avanzadas:**
+- Gap evolution con temperatura dual-axis
+- Acceptance rate (3 ventanas: 50/100/200)
+- Distribución de ΔE (dual subplot)
+- Balance exploración-explotación (stacked area)
+
+**Salida en:** `output/test_acceptance/`
+
+### 7. Visualización de AST (Nuevo)
+
+```bash
+python scripts/test_ast_visualization.py
+```
+
+**Genera 3 gráficas de árboles sintácticos:**
+- algorithm_1_ast.png
+- algorithm_2_ast.png
+- ast_comparison.png (comparación lado a lado)
+
+**Salida en:** `output/ast_visualizations/`
+
+**Requisitos:** Graphviz instalado (ejecutable + Python library)
+
+### 8. Test Completo de Todas las Instancias (Nuevo)
+
+```bash
+python scripts/test_all_low_dimensional.py
+```
+
+**Ejecuta SA en las 10 instancias low-dimensional**:
+- Una ejecución por instancia
+- Reporte comparativo completo
+- Estadísticas agregadas (gaps, tiempos, tasa de éxito)
+- Guardado en JSON con timestamp
+
+**Salida en:** `output/test_all_low_dimensional/results_TIMESTAMP.json`
+
+**Tiempo estimado:** 30-60 segundos
 
 ---
 
@@ -211,6 +283,7 @@ Ver documentación: [`docs/TRACKING_LOGS.md`](docs/TRACKING_LOGS.md)
 | [`docs/QUICKSTART_EJECUTABLE.md`](docs/QUICKSTART_EJECUTABLE.md) | Guía de inicio rápido ejecutable |
 | [`docs/COMO_EJECUTAR_EXPERIMENTOS.md`](docs/COMO_EJECUTAR_EXPERIMENTOS.md) | Cómo ejecutar experimentos completos |
 | [`docs/TRACKING_LOGS.md`](docs/TRACKING_LOGS.md) | Sistema de logging y tracking |
+| [`docs/SA_VISUALIZER_IMPLEMENTATION_PLAN.md`](docs/SA_VISUALIZER_IMPLEMENTATION_PLAN.md) | Plan completo de visualizaciones SA (8 categorías, 23 tipos) |
 | [`docs/README_SISTEMA.md`](docs/README_SISTEMA.md) | Documentación técnica completa |
 | [`docs/DATASET_STATUS.md`](docs/DATASET_STATUS.md) | Estado y validación de datasets |
 
@@ -257,11 +330,23 @@ from operators.improvement import (
 
 El sistema genera automáticamente:
 
+**Visualizaciones Generales:**
 1. **Boxplots**: Comparación de calidad por algoritmo
 2. **Barras con error**: Gaps promedio con intervalos de confianza
 3. **Scatter plots**: Tiempo vs calidad
-4. **Convergencia**: Evolución del mejor valor
-5. **Temperatura**: Temperatura vs tasa de aceptación
+
+**Visualizaciones SA Avanzadas (Nuevo):**
+4. **Gap Evolution**: Evolución del gap con temperatura dual-axis
+5. **Acceptance Rate**: Tasa de aceptación con temperatura dual-axis
+6. **ΔE Distribution**: Histograma dual (aceptados/rechazados + mejoras/empeoramientos)
+7. **Exploration-Exploitation Balance**: Área apilada (exploración vs explotación)
+
+**Visualizaciones AST (Nuevo):**
+8. **AST Graphviz**: Renderizado profesional de árboles sintácticos (PNG/PDF/SVG)
+9. **AST ASCII**: Visualización en terminal
+10. **AST Comparison**: Comparación lado a lado de múltiples algoritmos
+
+Ver plan completo: [`docs/SA_VISUALIZER_IMPLEMENTATION_PLAN.md`](docs/SA_VISUALIZER_IMPLEMENTATION_PLAN.md)
 
 ---
 
@@ -289,10 +374,114 @@ Ver [LICENSE](../../LICENSE) en el repositorio raíz.
 | Sistema GAA | ✅ Implementado |
 | Experimentación | ✅ Completo |
 | Tracking | ✅ Implementado |
+| **Visualización SA Avanzada** | ✅ **Nuevo: 4 gráficas** |
+| **Visualización AST** | ✅ **Nuevo: Graphviz + ASCII** |
 | Tests (18 tests) | ✅ 100% passing |
 | Datasets (31 instancias) | ✅ Validados |
 | Documentación | ✅ Completa |
 
 ---
 
-**Última actualización**: Diciembre 2024
+**Última actualización**: 17 de noviembre de 2025
+
+---
+
+## 🎨 Nuevas Funcionalidades (v2.0)
+
+### Sistema de Visualización SA Avanzado
+
+**Módulo:** `experimentation/visualization.py`
+
+**4 nuevos métodos:**
+
+1. **`plot_gap_evolution()`**
+   - Gráfica de gap (%) con temperatura dual-axis
+   - Marca mejoras automáticamente
+   - Panel estadístico con gap inicial/final/mínimo/promedio
+   - Línea de tendencia polinómica
+
+2. **`plot_acceptance_rate()`**
+   - Tasa de aceptación con temperatura dual-axis
+   - Ventana móvil configurable (50/100/200 iteraciones)
+   - Media y líneas de referencia
+   - Panel estadístico completo
+
+3. **`plot_delta_e_distribution()`**
+   - Dual subplot: Aceptados/Rechazados + Mejoras/Empeoramientos
+   - Histogramas superpuestos
+   - Estadísticas de ΔE (promedio, mediana)
+   - Clasificación automática de movimientos
+
+4. **`plot_exploration_exploitation_balance()`**
+   - Área apilada: Explotación (verde) / Exploración (naranja) / Rechazados (rojo)
+   - Temperatura dual-axis logarítmica
+   - Detección de punto de transición (exploración < 10%)
+   - Proporciones móviles con ventana configurable
+
+### Sistema de Visualización AST
+
+**Módulo:** `experimentation/ast_visualization.py`
+
+**Clase:** `ASTVisualizer`
+
+**Funcionalidades:**
+
+- **`plot_ast_graphviz()`**: Renderizado profesional (PNG/PDF/SVG, 300 DPI)
+- **`print_ast_ascii()`**: Visualización en terminal con box-drawing chars
+- **`plot_ast_comparison()`**: Comparación lado a lado de múltiples algoritmos
+- **`get_ast_statistics()`**: Análisis de estructura (nodos, profundidad, operadores)
+
+**Características:**
+- 10 tipos de nodos con colores específicos
+- Etiquetas con parámetros (iteraciones, estrategias, operadores)
+- Construcción recursiva del árbol
+- Compatible con Graphviz v14.0.4
+
+### Scripts de Test
+
+**5 nuevos scripts de validación:**
+
+1. **`test_single_instance.py`**: Test con f1 (óptimo: 295/295 ✅)
+2. **`test_gap_visualization.py`**: Validación gap evolution
+3. **`test_acceptance_visualization.py`**: Suite completa (6 gráficas)
+4. **`test_ast_visualization.py`**: Renderizado AST (3 gráficas)
+5. **`quick_ast_test.py`**: Validación rápida Graphviz
+
+### Integración en Demo
+
+**`scripts/demo_experimentation.py`** actualizado:
+
+- **Paso 6.5 (nuevo)**: Visualización automática del mejor algoritmo
+  - ASCII tree en terminal
+  - PNG profesional con Graphviz
+  - Estadísticas de AST (nodos, profundidad, operadores)
+
+### Dependencias Nuevas
+
+```bash
+pip install graphviz  # Python library v0.21
+winget install graphviz  # Ejecutable v14.0.4 (Windows)
+```
+
+**PATH requerido:** `C:\Program Files\Graphviz\bin`
+
+---
+
+## 📊 Ejemplos de Output
+
+### Gap Evolution
+![Gap Evolution](docs/images/gap_evolution_example.png)
+- Eje Y izquierdo: Gap (%)
+- Eje Y derecho: Temperatura (logarítmica)
+- Marcadores de mejoras
+- Panel estadístico
+
+### AST Visualization
+![AST Example](docs/images/ast_example.png)
+- Nodos coloreados por tipo
+- Parámetros visibles
+- Estructura clara y profesional
+
+---
+
+**Última actualización**: 17 de noviembre de 2025

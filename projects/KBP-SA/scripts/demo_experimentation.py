@@ -28,7 +28,142 @@ from experimentation.visualization import ResultsVisualizer
 from experimentation.ast_visualization import ASTVisualizer
 from gaa.generator import AlgorithmGenerator
 from gaa.grammar import Grammar
+from metaheuristic.sa_core import SimulatedAnnealing
+from core.solution import KnapsackSolution
 import numpy as np
+
+
+def run_detailed_visualization_per_instance(instance, algorithm, plots_dir, timestamp):
+    """
+    Ejecuta SA con tracking detallado y genera 4 visualizaciones por instancia
+    
+    Args:
+        instance: KnapsackProblem
+        algorithm: dict con 'name', 'ast', 'interpreter'
+        plots_dir: directorio base
+        timestamp: timestamp para subcarpetas
+    """
+    # Crear subcarpeta para esta instancia
+    instance_dir = plots_dir / f"{instance.name}_{timestamp}"
+    instance_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Variables de tracking
+    best_values_history = []
+    acceptance_history = []
+    temperature_history = []
+    delta_e_history = []
+    
+    # Configurar SA con tracking
+    sa = SimulatedAnnealing(
+        problem=instance,
+        T0=100.0,
+        alpha=0.95,
+        iterations_per_temp=100,
+        T_min=0.01,
+        max_evaluations=5000,
+        seed=42
+    )
+    
+    # Función de vecindad simple
+    def custom_neighborhood(solution, rng):
+        neighbor = solution.copy()
+        idx = rng.integers(0, instance.n)
+        neighbor.selection[idx] = 1 - neighbor.selection[idx]
+        neighbor.evaluate(instance)
+        return neighbor
+    
+    sa.neighborhood_function = custom_neighborhood
+    
+    # Ejecutar SA con tracking completo
+    initial = KnapsackSolution.empty(instance.n, instance)
+    current = initial.copy()
+    best = current.copy()
+    
+    T = sa.T0
+    rng = sa.rng
+    evaluations = 0
+    
+    def get_effective_value(sol):
+        if sol.is_feasible:
+            return sol.value
+        else:
+            excess = sol.weight - sol.problem.capacity
+            return sol.value - excess * 1000
+    
+    while T > sa.T_min and evaluations < sa.max_evaluations:
+        for _ in range(sa.iterations_per_temp):
+            neighbor = sa.neighborhood_function(current, rng)
+            evaluations += 1
+            
+            delta = get_effective_value(neighbor) - get_effective_value(current)
+            delta_e_history.append(delta)
+            
+            accepted = False
+            if delta > 0:
+                accepted = True
+                current = neighbor
+            else:
+                prob = np.exp(delta / T)
+                if rng.random() < prob:
+                    accepted = True
+                    current = neighbor
+            
+            acceptance_history.append(1 if accepted else 0)
+            temperature_history.append(T)
+            
+            if current.is_feasible and current.value > best.value:
+                best = current.copy()
+            
+            best_values_history.append(best.value)
+            
+            if evaluations >= sa.max_evaluations:
+                break
+        
+        T *= sa.alpha
+    
+    # Generar visualizaciones
+    visualizer = ResultsVisualizer(output_dir=str(instance_dir))
+    
+    # 1. Gap evolution
+    visualizer.plot_gap_evolution(
+        best_values=best_values_history,
+        optimal_value=instance.optimal_value,
+        title=f"Gap Evolution - {instance.name}",
+        filename="gap_evolution.png",
+        show_improvements=True,
+        temperature_history=temperature_history
+    )
+    
+    # 2. Acceptance rate
+    visualizer.plot_acceptance_rate(
+        acceptance_history=acceptance_history,
+        window_size=100,
+        title=f"Acceptance Rate - {instance.name}",
+        filename="acceptance_rate.png",
+        temperature_history=temperature_history
+    )
+    
+    # 3. Delta E distribution
+    acceptance_decisions = [bool(x) for x in acceptance_history]
+    visualizer.plot_delta_e_distribution(
+        delta_e_values=delta_e_history,
+        acceptance_decisions=acceptance_decisions,
+        title=f"ΔE Distribution - {instance.name}",
+        filename="delta_e_distribution.png",
+        bins=50
+    )
+    
+    # 4. Exploration-exploitation balance
+    visualizer.plot_exploration_exploitation_balance(
+        delta_e_values=delta_e_history,
+        acceptance_decisions=acceptance_decisions,
+        temperature_history=temperature_history,
+        title=f"Exploration-Exploitation Balance - {instance.name}",
+        filename="exploration_exploitation_balance.png",
+        window_size=100
+    )
+    
+    return best
 
 
 def main():
@@ -60,7 +195,7 @@ def main():
     # 2. Configurar experimento
     print("⚙️  Paso 2: Configurando experimento...\n")
     
-    # Cargar SOLO UNA INSTANCIA (f1 para prueba)
+    # Cargar TODAS las instancias low-dimensional
     from data.loader import DatasetLoader
     from pathlib import Path
     
@@ -69,21 +204,21 @@ def main():
     loader = DatasetLoader(datasets_dir)
     all_instances = loader.load_folder("low_dimensional")
     
-    # Filtrar solo f1
-    instance_names = [inst.name for inst in all_instances if "f1_l-d" in inst.name]
+    # Usar TODAS las instancias low-dimensional
+    instance_names = [inst.name for inst in all_instances]
     
-    print(f"📁 Instancia seleccionada para prueba:")
-    for name in instance_names:
+    print(f"📁 Instancias low-dimensional cargadas: {len(instance_names)}")
+    for name in sorted(instance_names):
         print(f"   • {name}")
     print()
     
     config = ExperimentConfig(
-        name="single_instance_test",
+        name="low_dimensional_full_test",
         instances=instance_names,
         algorithms=algorithms,
-        repetitions=1,  # 1 repetición para prueba rápida
-        max_time_seconds=60.0,
-        output_dir="output/single_instance_test"
+        repetitions=3,  # 3 repeticiones para análisis estadístico
+        max_time_seconds=120.0,
+        output_dir="output/low_dimensional_full_test"
     )
     
     print(f"⚙️  Configuración:")
@@ -94,7 +229,7 @@ def main():
     print()
     
     # 3. Ejecutar experimentos
-    print("🚀 Paso 3: Ejecutando experimento con UNA instancia (f1)...\n")
+    print("🚀 Paso 3: Ejecutando experimentos con TODAS las instancias low-dimensional...\n")
     
     runner = ExperimentRunner(config)
     runner.load_instances("low_dimensional")
@@ -199,15 +334,21 @@ def main():
                 print("(efecto grande)")
             print()
     
-    # 6.5 Visualización del AST del mejor algoritmo
-    print("🌳 Paso 6.5: Visualizando estructura del mejor algoritmo...\n")
+    # 7. Visualización
+    print("📈 Paso 7: Generando visualizaciones...\n")
+    
+    # Crear carpeta UNIFICADA con dataset_timestamp para TODAS las visualizaciones
+    plots_dir = f"output/low_dimensional_{timestamp}"
+    visualizer = ResultsVisualizer(output_dir=plots_dir)
+    
+    # 7.1 Visualización del AST del mejor algoritmo (en la MISMA carpeta)
+    print("🌳 Paso 7.1: Visualizando estructura del mejor algoritmo...\n")
     
     best_algorithm_name = comparison['best_algorithm']
     best_alg = next(alg for alg in algorithms if alg['name'] == best_algorithm_name)
     
-    # Crear visualizador de AST
-    ast_dir = f"output/ast_f1_test_{timestamp}"
-    ast_visualizer = ASTVisualizer(output_dir=ast_dir)
+    # Crear visualizador de AST en la MISMA carpeta plots_dir
+    ast_visualizer = ASTVisualizer(output_dir=plots_dir)
     
     # Visualización ASCII
     print(f"📊 Estructura del {best_algorithm_name}:\n")
@@ -222,7 +363,7 @@ def main():
     print(f"   • Operadores usados: {stats['terminal_operators']}")
     print()
     
-    # Gráfico Graphviz (si está disponible)
+    # Gráfico Graphviz (si está disponible) - guardado en plots_dir
     if ast_visualizer.has_graphviz:
         ast_path = ast_visualizer.plot_ast_graphviz(
             ast_node=best_alg['ast'],
@@ -232,12 +373,8 @@ def main():
         )
         print()
     
-    # 7. Visualización
-    print("📈 Paso 7: Generando visualizaciones...\n")
-    
-    # Crear carpeta con dataset_timestamp
-    plots_dir = f"output/plots_f1_test_{timestamp}"
-    visualizer = ResultsVisualizer(output_dir=plots_dir)
+    # 7.2 Gráficas de comparación estadística
+    print("📊 Paso 7.2: Generando gráficas de comparación...\n")
     
     if visualizer.has_matplotlib and len(algorithm_results) >= 2:
         # Boxplot
@@ -282,128 +419,47 @@ def main():
             filename="demo_scatter.png"
         )
         
-        # Gap evolution (si hay datos de convergencia en tracking)
-        # Buscar el mejor algoritmo para mostrar su evolución
-        if len(algorithm_results) > 0:
-            best_alg = min(algorithm_results.items(), key=lambda x: sum(x[1])/len(x[1]))
-            print(f"\n📊 Generando gráfica de evolución del gap para: {best_alg[0]}")
-            
-            # Buscar resultado del mejor algoritmo
-            best_result = None
-            for r in results:
-                if r.algorithm_name == best_alg[0] and r.success:
-                    best_result = r
-                    break
-            
-            if best_result:
-                # Simular evolución (en futuro usaremos tracking real)
-                # Calcular valor óptimo desde gap
-                if best_result.gap_to_optimal is not None and best_result.gap_to_optimal > 0:
-                    # optimal = best / (1 - gap/100)
-                    optimal = int(best_result.best_value / (1 - best_result.gap_to_optimal/100))
-                else:
-                    # Si gap es 0 o None, el best_value es el óptimo
-                    optimal = best_result.best_value
-                
-                initial_gap = best_result.gap_to_optimal if best_result.gap_to_optimal else 0
-                
-                # Crear progresión simulada (exponencial decay)
-                n_iters = 1000
-                simulated_gaps = []
-                simulated_temp_for_gap = []
-                T_gap = 100.0
-                alpha_gap = 0.95
-                
-                for i in range(n_iters):
-                    progress = i / n_iters
-                    gap = initial_gap * np.exp(-3 * progress)  # Decay exponencial
-                    simulated_gaps.append(gap)
-                    
-                    # Temperatura para gráfica de gap
-                    simulated_temp_for_gap.append(T_gap)
-                    if i % 100 == 0:
-                        T_gap *= alpha_gap
-                
-                # Convertir gaps a valores
-                simulated_values = [optimal * (1 - gap/100) for gap in simulated_gaps]
-                
-                visualizer.plot_gap_evolution(
-                    best_values=simulated_values,
-                    optimal_value=optimal,
-                    title=f"Evolución del Gap y Temperatura - {best_alg[0]}",
-                    filename="demo_gap_evolution.png",
-                    show_improvements=True,
-                    temperature_history=simulated_temp_for_gap
-                )
-                print(f"   ✅ Gráfica de gap generada")
-                
-                # Simular tasa de aceptación (decae con la temperatura)
-                # En futuro usaremos datos reales de tracking
-                simulated_acceptance = []
-                simulated_temperature = []
-                T0 = 100.0
-                alpha = 0.95
-                T = T0
-                
-                for i in range(n_iters):
-                    # Temperatura decae geométricamente
-                    simulated_temperature.append(T)
-                    
-                    # Tasa alta al inicio, baja al final (refleja enfriamiento)
-                    temp_ratio = T / T0
-                    acceptance_rate = 0.15 + 0.40 * temp_ratio  # Entre 15% y 55%
-                    # Generar decisiones binarias basadas en la tasa
-                    decision = 1 if np.random.random() < acceptance_rate else 0
-                    simulated_acceptance.append(decision)
-                    
-                    # Enfriar cada 100 iteraciones
-                    if i % 100 == 0:
-                        T *= alpha
-                
-                visualizer.plot_acceptance_rate(
-                    acceptance_history=simulated_acceptance,
-                    window_size=100,
-                    title=f"Tasa de Aceptación y Temperatura - {best_alg[0]}",
-                    filename="demo_acceptance_rate.png",
-                    temperature_history=simulated_temperature
-                )
-                print(f"   ✅ Gráfica de tasa de aceptación generada")
-                
-                # Simular distribución de ΔE
-                # En futuro usaremos datos reales de tracking
-                simulated_delta_e = []
-                simulated_acceptance_decisions = []
-                
-                for i in range(n_iters):
-                    # Simular ΔE: 70% mejoras, 30% empeoramientos
-                    if np.random.random() < 0.7:
-                        # Mejora (negativo)
-                        delta = -np.random.exponential(20)
-                    else:
-                        # Empeoramiento (positivo)
-                        delta = np.random.exponential(30)
-                    
-                    simulated_delta_e.append(delta)
-                    
-                    # Decisión: mejoras siempre, empeoramientos según temperatura
-                    if delta <= 0:
-                        simulated_acceptance_decisions.append(True)
-                    else:
-                        # Usar tasa de aceptación basada en temperatura
-                        T_current = simulated_temperature[i]
-                        accept_prob = np.exp(-delta / T_current) if T_current > 0 else 0
-                        simulated_acceptance_decisions.append(np.random.random() < accept_prob)
-                
-                visualizer.plot_delta_e_distribution(
-                    delta_e_values=simulated_delta_e,
-                    acceptance_decisions=simulated_acceptance_decisions,
-                    title=f"Distribución de ΔE - {best_alg[0]}",
-                    filename="demo_delta_e_distribution.png",
-                    bins=40
-                )
-                print(f"   ✅ Gráfica de distribución ΔE generada")
+        # 7.3 Visualizaciones detalladas POR CADA INSTANCIA
+        print("\n📊 Paso 7.3: Generando visualizaciones detalladas por instancia...\n")
         
-        print(f"\n✅ Todas las visualizaciones generadas en {plots_dir}/\n")
+        # Obtener mejor algoritmo
+        best_alg_name = comparison['best_algorithm']
+        best_alg = next(alg for alg in algorithms if alg['name'] == best_alg_name)
+        
+        # Cargar instancias
+        from data.loader import DatasetLoader
+        from pathlib import Path as PathLib
+        
+        datasets_dir = PathLib(__file__).parent.parent / "datasets"
+        loader = DatasetLoader(datasets_dir)
+        all_instances = loader.load_folder("low_dimensional")
+        
+        print(f"🔬 Ejecutando {best_alg_name} en cada instancia con tracking completo...\n")
+        
+        for i, instance in enumerate(sorted(all_instances, key=lambda x: x.n), 1):
+            print(f"[{i}/{len(all_instances)}] {instance.name} (n={instance.n})...", end=" ", flush=True)
+            
+            try:
+                best_solution = run_detailed_visualization_per_instance(
+                    instance=instance,
+                    algorithm=best_alg,
+                    plots_dir=Path(plots_dir),
+                    timestamp=timestamp
+                )
+                
+                gap = ((instance.optimal_value - best_solution.value) / instance.optimal_value) * 100 if instance.optimal_value > 0 else 0
+                status = "✅ ÓPTIMO" if gap == 0 else f"Gap: {gap:.2f}%"
+                print(f"{status} - 4 gráficas generadas")
+            except Exception as e:
+                print(f"❌ Error: {e}")
+        
+        print(f"\n✅ Visualizaciones por instancia completadas")
+        
+        print(f"\n✅ Todas las visualizaciones generadas en {plots_dir}/")
+        print(f"   📊 Gráficas estadísticas: boxplot, bars, scatter")
+        print(f"   🌳 AST del mejor algoritmo: best_algorithm_ast.png")
+        print(f"   📁 Carpetas por instancia: {len(all_instances)} carpetas con 4 gráficas cada una")
+        print()
     else:
         if not visualizer.has_matplotlib:
             print("⚠️  matplotlib no disponible. Saltando visualizaciones.")
