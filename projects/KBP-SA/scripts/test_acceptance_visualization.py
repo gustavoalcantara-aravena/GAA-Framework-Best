@@ -38,21 +38,28 @@ def test_acceptance_and_gap_visualization():
     """
     print("="*70)
     print("TEST: VISUALIZACIÓN DE TASA DE ACEPTACIÓN Y GAP")
+    print("TEST CON TODAS LAS INSTANCIAS LOW-DIMENSIONAL")
     print("="*70)
     
-    # 1. Cargar instancia f1
-    print("\n📂 Cargando instancia f1...")
+    # 1. Cargar TODAS las instancias low-dimensional
+    print("\n📂 Cargando instancias low-dimensional...")
     loader = DatasetLoader(base_dir=project_root / "datasets")
     instances = loader.load_folder("low_dimensional")
-    f1 = [inst for inst in instances if "f1_l-d" in inst.name][0]
     
-    print(f"✅ Instancia cargada: {f1.name}")
-    print(f"   n={f1.n}, capacity={f1.capacity}, optimal={f1.optimal_value}")
+    print(f"✅ {len(instances)} instancias cargadas:")
+    for inst in sorted(instances, key=lambda x: x.n):
+        print(f"   • {inst.name}: n={inst.n}, capacity={inst.capacity}, optimal={inst.optimal_value}")
+    
+    # Seleccionar primera instancia para demostración detallada
+    test_instance = sorted(instances, key=lambda x: x.n)[0]
+    
+    print(f"\n📊 Generando visualizaciones detalladas para: {test_instance.name}")
+    print(f"   n={test_instance.n}, capacity={test_instance.capacity}, optimal={test_instance.optimal_value}")
     
     # 2. Configurar SA
     print("\n🔧 Configurando Simulated Annealing...")
     sa = SimulatedAnnealing(
-        problem=f1,
+        problem=test_instance,
         T0=100.0,
         alpha=0.95,
         iterations_per_temp=100,
@@ -64,7 +71,7 @@ def test_acceptance_and_gap_visualization():
     
     # 3. Ejecutar SA con tracking detallado
     print("\n🚀 Ejecutando SA con tracking...")
-    initial = KnapsackSolution.empty(f1.n, f1)
+    initial = KnapsackSolution.empty(test_instance.n, test_instance)
     
     # Variables de tracking
     best_values_history = []
@@ -122,7 +129,7 @@ def test_acceptance_and_gap_visualization():
                 if current.is_feasible and current.value > best.value:
                     best = current.copy()
                     if verbose and evaluations % 500 == 0:
-                        gap = ((f1.optimal_value - best.value) / f1.optimal_value) * 100
+                        gap = ((test_instance.optimal_value - best.value) / test_instance.optimal_value) * 100
                         acc_rate = (sum(acceptance_history[-100:]) / min(100, len(acceptance_history))) * 100
                         print(f"Eval {evaluations:5d}: best={best.value:3.0f}, gap={gap:5.2f}%, "
                               f"T={T:.4f}, acc={acc_rate:.1f}%")
@@ -143,8 +150,8 @@ def test_acceptance_and_gap_visualization():
     
     print(f"\n✅ Optimización completada")
     print(f"   Mejor valor: {best.value}")
-    print(f"   Óptimo: {f1.optimal_value}")
-    gap = ((f1.optimal_value - best.value) / f1.optimal_value) * 100
+    print(f"   Óptimo: {test_instance.optimal_value}")
+    gap = ((test_instance.optimal_value - best.value) / test_instance.optimal_value) * 100
     print(f"   Gap final: {gap:.2f}%")
     print(f"   Iteraciones: {len(acceptance_history)}")
     print(f"   Aceptaciones: {sum(acceptance_history)}")
@@ -159,8 +166,8 @@ def test_acceptance_and_gap_visualization():
     print("\n📈 Gráfica 1: Evolución del Gap con Temperatura")
     gap_path = visualizer.plot_gap_evolution(
         best_values=best_values_history,
-        optimal_value=f1.optimal_value,
-        title=f"Evolución del Gap y Temperatura - {f1.name}",
+        optimal_value=test_instance.optimal_value,
+        title=f"Evolución del Gap y Temperatura - {test_instance.name}",
         filename="gap_evolution.png",
         show_improvements=True,
         temperature_history=temperature_history
@@ -176,7 +183,7 @@ def test_acceptance_and_gap_visualization():
         acc_path = visualizer.plot_acceptance_rate(
             acceptance_history=acceptance_history,
             window_size=window,
-            title=f"Tasa de Aceptación y Temperatura - {f1.name} (ventana={window})",
+            title=f"Tasa de Aceptación y Temperatura - {test_instance.name} (ventana={window})",
             filename=f"acceptance_rate_w{window}.png",
             temperature_history=temperature_history
         )
@@ -192,7 +199,7 @@ def test_acceptance_and_gap_visualization():
     delta_path = visualizer.plot_delta_e_distribution(
         delta_e_values=delta_e_history,
         acceptance_decisions=acceptance_decisions,
-        title=f"Distribución de ΔE - {f1.name}",
+        title=f"Distribución de ΔE - {test_instance.name}",
         filename="delta_e_distribution.png",
         bins=50
     )
@@ -206,7 +213,7 @@ def test_acceptance_and_gap_visualization():
         delta_e_values=delta_e_history,
         acceptance_decisions=acceptance_decisions,
         temperature_history=temperature_history,
-        title=f"Balance Exploración-Explotación - {f1.name}",
+        title=f"Balance Exploración-Explotación - {test_instance.name}",
         filename="exploration_exploitation_balance.png",
         window_size=100
     )
@@ -216,7 +223,7 @@ def test_acceptance_and_gap_visualization():
     
     # 4.5 Estadísticas detalladas
     print("\n📊 Estadísticas detalladas:")
-    print(f"   Gap inicial: {((f1.optimal_value - best_values_history[0]) / f1.optimal_value) * 100:.2f}%")
+    print(f"   Gap inicial: {((test_instance.optimal_value - best_values_history[0]) / test_instance.optimal_value) * 100:.2f}%")
     print(f"   Gap final: {gap:.2f}%")
     print(f"   Mejoras: {sum(1 for i in range(1, len(best_values_history)) if best_values_history[i] > best_values_history[i-1])}")
     
