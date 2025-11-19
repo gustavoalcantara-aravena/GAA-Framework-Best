@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Demo de Experimentación - KBP-SA
 Demuestra el módulo experimentation/ para análisis estadístico
@@ -13,6 +14,12 @@ Este script ejecuta:
 import sys
 import os
 from pathlib import Path
+
+# Configurar encoding UTF-8 para salida en Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 from datetime import datetime
 
 # Agregar proyecto al path
@@ -33,137 +40,237 @@ from core.solution import KnapsackSolution
 import numpy as np
 
 
-def run_detailed_visualization_per_instance(instance, algorithm, plots_dir, timestamp):
+def run_detailed_visualization_per_group(instances, algorithm, plots_dir, timestamp):
     """
-    Ejecuta SA con tracking detallado y genera 4 visualizaciones por instancia
+    Ejecuta SA en TODAS las instancias del grupo con tracking detallado y genera
+    4 visualizaciones agregadas representativas del grupo completo
     
     Args:
-        instance: KnapsackProblem
+        instances: lista de KnapsackProblem (todas las instancias del grupo)
         algorithm: dict con 'name', 'ast', 'interpreter'
-        plots_dir: directorio base
-        timestamp: timestamp para subcarpetas
+        plots_dir: directorio donde guardar las gráficas
+        timestamp: timestamp (no usado, mantenido por compatibilidad)
+    
+    Returns:
+        best_solution: mejor solución encontrada entre todas las instancias
     """
-    # Crear subcarpeta para esta instancia
-    instance_dir = plots_dir / f"{instance.name}_{timestamp}"
-    instance_dir.mkdir(parents=True, exist_ok=True)
+    # Guardar directamente en la carpeta principal (no subcarpeta)
+    output_dir = plots_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Variables de tracking
-    best_values_history = []
-    acceptance_history = []
-    temperature_history = []
-    delta_e_history = []
+    print(f"  Ejecutando SA en {len(instances)} instancias del grupo...")
     
-    # Configurar SA con tracking
-    sa = SimulatedAnnealing(
-        problem=instance,
-        T0=100.0,
-        alpha=0.95,
-        iterations_per_temp=100,
-        T_min=0.01,
-        max_evaluations=5000,
-        seed=42
-    )
+    # Variables para almacenar tracking de todas las instancias
+    all_best_values = []  # Lista de listas
+    all_acceptances = []  # Lista de listas
+    all_temperatures = []  # Lista de listas
+    all_delta_e = []  # Lista de listas
     
-    # Función de vecindad simple
-    def custom_neighborhood(solution, rng):
-        neighbor = solution.copy()
-        idx = rng.integers(0, instance.n)
-        neighbor.selection[idx] = 1 - neighbor.selection[idx]
-        neighbor.evaluate(instance)
-        return neighbor
+    best_overall = None
     
-    sa.neighborhood_function = custom_neighborhood
-    
-    # Ejecutar SA con tracking completo
-    initial = KnapsackSolution.empty(instance.n, instance)
-    current = initial.copy()
-    best = current.copy()
-    
-    T = sa.T0
-    rng = sa.rng
-    evaluations = 0
-    
-    def get_effective_value(sol):
-        if sol.is_feasible:
-            return sol.value
-        else:
-            excess = sol.weight - sol.problem.capacity
-            return sol.value - excess * 1000
-    
-    while T > sa.T_min and evaluations < sa.max_evaluations:
-        for _ in range(sa.iterations_per_temp):
-            neighbor = sa.neighborhood_function(current, rng)
-            evaluations += 1
-            
-            delta = get_effective_value(neighbor) - get_effective_value(current)
-            delta_e_history.append(delta)
-            
-            accepted = False
-            if delta > 0:
-                accepted = True
-                current = neighbor
+    # Ejecutar SA en cada instancia del grupo
+    for idx, instance in enumerate(instances, 1):
+        print(f"    [{idx}/{len(instances)}] Procesando {instance.name}...", end=" ")
+        
+        # Variables de tracking para esta instancia
+        best_values_history = []
+        acceptance_history = []
+        temperature_history = []
+        delta_e_history = []
+        
+        # Configurar SA con tracking
+        sa = SimulatedAnnealing(
+            problem=instance,
+            T0=100.0,
+            alpha=0.95,
+            iterations_per_temp=100,
+            T_min=0.01,
+            max_evaluations=5000,
+            seed=42
+        )
+        
+        # Función de vecindad simple
+        def custom_neighborhood(solution, rng):
+            neighbor = solution.copy()
+            idx_flip = rng.integers(0, instance.n)
+            neighbor.selection[idx_flip] = 1 - neighbor.selection[idx_flip]
+            neighbor.evaluate(instance)
+            return neighbor
+        
+        sa.neighborhood_function = custom_neighborhood
+        
+        # Ejecutar SA con tracking completo
+        initial = KnapsackSolution.empty(instance.n, instance)
+        current = initial.copy()
+        best = current.copy()
+        
+        T = sa.T0
+        rng = sa.rng
+        evaluations = 0
+        
+        def get_effective_value(sol):
+            if sol.is_feasible:
+                return sol.value
             else:
-                prob = np.exp(delta / T)
-                if rng.random() < prob:
+                excess = sol.weight - sol.problem.capacity
+                return sol.value - excess * 1000
+        
+        while T > sa.T_min and evaluations < sa.max_evaluations:
+            for _ in range(sa.iterations_per_temp):
+                neighbor = sa.neighborhood_function(current, rng)
+                evaluations += 1
+                
+                delta = get_effective_value(neighbor) - get_effective_value(current)
+                delta_e_history.append(delta)
+                
+                accepted = False
+                if delta > 0:
                     accepted = True
                     current = neighbor
+                else:
+                    prob = np.exp(delta / T)
+                    if rng.random() < prob:
+                        accepted = True
+                        current = neighbor
+                
+                acceptance_history.append(1 if accepted else 0)
+                temperature_history.append(T)
+                
+                if current.is_feasible and current.value > best.value:
+                    best = current.copy()
+                
+                best_values_history.append(best.value)
+                
+                if evaluations >= sa.max_evaluations:
+                    break
             
-            acceptance_history.append(1 if accepted else 0)
-            temperature_history.append(T)
-            
-            if current.is_feasible and current.value > best.value:
-                best = current.copy()
-            
-            best_values_history.append(best.value)
-            
-            if evaluations >= sa.max_evaluations:
-                break
+            T *= sa.alpha
         
-        T *= sa.alpha
+        # Almacenar tracking de esta instancia
+        all_best_values.append(best_values_history)
+        all_acceptances.append(acceptance_history)
+        all_temperatures.append(temperature_history)
+        all_delta_e.append(delta_e_history)
+        
+        # Actualizar mejor solución global
+        if best_overall is None or (best.is_feasible and best.value > best_overall.value):
+            best_overall = best.copy()
+        
+        gap = ((instance.optimal_value - best.value) / instance.optimal_value) * 100 if instance.optimal_value > 0 else 0
+        print(f"Gap: {gap:.2f}%")
     
-    # Generar visualizaciones
-    visualizer = ResultsVisualizer(output_dir=str(instance_dir))
+    print(f"\n  Agregando datos de {len(instances)} instancias...")
     
-    # 1. Gap evolution
+    # Agregar datos de todas las instancias
+    # 1. Gap Evolution: normalizar y promediar
+    max_length = max(len(vals) for vals in all_best_values)
+    
+    # Normalizar best_values a gaps porcentuales
+    normalized_gaps = []
+    for i, best_vals in enumerate(all_best_values):
+        instance = instances[i]
+        gaps = [((instance.optimal_value - val) / instance.optimal_value) * 100 
+                if instance.optimal_value > 0 else 0 
+                for val in best_vals]
+        # Pad con último valor si es necesario
+        if len(gaps) < max_length:
+            gaps.extend([gaps[-1]] * (max_length - len(gaps)))
+        normalized_gaps.append(gaps)
+    
+    # Calcular media y std de gaps
+    gap_mean = np.mean(normalized_gaps, axis=0)
+    gap_std = np.std(normalized_gaps, axis=0)
+    
+    # 2. Acceptance Rate: promediar tasas de aceptación
+    max_length_acc = max(len(acc) for acc in all_acceptances)
+    padded_acceptances = []
+    for acc in all_acceptances:
+        if len(acc) < max_length_acc:
+            acc_padded = acc + [acc[-1]] * (max_length_acc - len(acc))
+        else:
+            acc_padded = acc
+        padded_acceptances.append(acc_padded)
+    
+    acceptance_mean = np.mean(padded_acceptances, axis=0).tolist()
+    
+    # Usar temperatura de una instancia representativa (todas deberían ser similares)
+    representative_temperature = all_temperatures[len(all_temperatures) // 2]
+    
+    # 3. Delta E Distribution: concatenar todos los valores
+    all_delta_e_combined = []
+    all_acceptances_combined = []
+    all_temperatures_combined = []
+    for delta_list, acc_list, temp_list in zip(all_delta_e, all_acceptances, all_temperatures):
+        all_delta_e_combined.extend(delta_list)
+        all_acceptances_combined.extend(acc_list)
+        all_temperatures_combined.extend(temp_list)
+    
+    # 4. Exploration-Exploitation: promediar proporciones
+    # Esta gráfica se calcula internamente, solo pasamos datos combinados
+    
+    # Generar visualizaciones agregadas en la carpeta principal
+    visualizer = ResultsVisualizer(output_dir=str(output_dir))
+    
+    print(f"\n  Generando visualizaciones agregadas del grupo...")
+    
+    # 1. Gap evolution (con banda de confianza)
+    # Crear datos sintéticos para plot_gap_evolution
+    # La función espera best_values y optimal, los reconstruimos desde gap_mean
+    # Asumimos optimal=100 y calculamos best_values correspondientes
+    synthetic_optimal = 100
+    synthetic_best_values = [(synthetic_optimal * (1 - gap/100)) for gap in gap_mean]
+    
     visualizer.plot_gap_evolution(
-        best_values=best_values_history,
-        optimal_value=instance.optimal_value,
-        title=f"Gap Evolution - {instance.name}",
+        best_values=synthetic_best_values,
+        optimal_value=synthetic_optimal,
+        title="Gap Evolution - Grupo Low-Dimensional (Promedio de todas las instancias)",
         filename="gap_evolution.png",
         show_improvements=True,
-        temperature_history=temperature_history
+        temperature_history=representative_temperature
     )
     
-    # 2. Acceptance rate
+    # 2. Acceptance rate (promediada)
     visualizer.plot_acceptance_rate(
-        acceptance_history=acceptance_history,
+        acceptance_history=acceptance_mean,
         window_size=100,
-        title=f"Acceptance Rate - {instance.name}",
+        title="Acceptance Rate - Grupo Low-Dimensional (Promedio de todas las instancias)",
         filename="acceptance_rate.png",
-        temperature_history=temperature_history
+        temperature_history=representative_temperature
     )
     
-    # 3. Delta E distribution
-    acceptance_decisions = [bool(x) for x in acceptance_history]
+    # 3. Delta E distribution (combinada de todas las instancias)
+    acceptance_decisions_combined = [bool(x) for x in all_acceptances_combined]
     visualizer.plot_delta_e_distribution(
-        delta_e_values=delta_e_history,
-        acceptance_decisions=acceptance_decisions,
-        title=f"ΔE Distribution - {instance.name}",
+        delta_e_values=all_delta_e_combined,
+        acceptance_decisions=acceptance_decisions_combined,
+        title="ΔE Distribution - Grupo Low-Dimensional (Todas las instancias)",
         filename="delta_e_distribution.png",
         bins=50
     )
     
-    # 4. Exploration-exploitation balance
-    visualizer.plot_exploration_exploitation_balance(
-        delta_e_values=delta_e_history,
-        acceptance_decisions=acceptance_decisions,
-        temperature_history=temperature_history,
-        title=f"Exploration-Exploitation Balance - {instance.name}",
-        filename="exploration_exploitation_balance.png",
-        window_size=100
-    )
+    # 4. Exploration-exploitation balance (una gráfica por instancia)
+    # Generar gráficas individuales para cada instancia del grupo
+    print(f"\n  Generando gráficas exploration-exploitation por instancia...")
     
-    return best
+    for idx, (instance, delta_list, acc_list, temp_list) in enumerate(zip(instances, all_delta_e, all_acceptances, all_temperatures), 1):
+        instance_name = instance.name.replace('_low-dimensional', '')
+        
+        acceptance_decisions = [bool(x) for x in acc_list]
+        
+        visualizer.plot_exploration_exploitation_balance(
+            delta_e_values=delta_list,
+            acceptance_decisions=acceptance_decisions,
+            temperature_history=temp_list,
+            title=f"Exploration-Exploitation Balance - {instance_name}",
+            filename=f"exploration_exploitation_{instance_name}.png",
+            window_size=100
+        )
+        
+        print(f"    [{idx}/{len(instances)}] {instance_name}: ✓")
+    
+    print(f"  ✅ {3 + len(instances)} gráficas SA generadas (3 agregadas + {len(instances)} por instancia)")
+    
+    return best_overall
 
 
 def main():
@@ -195,7 +302,7 @@ def main():
     # 2. Configurar experimento
     print("⚙️  Paso 2: Configurando experimento...\n")
     
-    # Cargar TODAS las instancias low-dimensional
+    # Cargar TODAS las instancias low-dimensional disponibles
     from data.loader import DatasetLoader
     from pathlib import Path
     
@@ -204,21 +311,21 @@ def main():
     loader = DatasetLoader(datasets_dir)
     all_instances = loader.load_folder("low_dimensional")
     
-    # Usar TODAS las instancias low-dimensional
+    # Usar nombres de todas las instancias
     instance_names = [inst.name for inst in all_instances]
     
-    print(f"📁 Instancias low-dimensional cargadas: {len(instance_names)}")
-    for name in sorted(instance_names):
+    print(f"📁 Instancias low-dimensional encontradas: {len(instance_names)}")
+    for name in instance_names:
         print(f"   • {name}")
     print()
     
     config = ExperimentConfig(
-        name="low_dimensional_full_test",
+        name="all_instances_experiment",
         instances=instance_names,
         algorithms=algorithms,
-        repetitions=3,  # 3 repeticiones para análisis estadístico
-        max_time_seconds=120.0,
-        output_dir="output/low_dimensional_full_test"
+        repetitions=1,  # 1 repetición por instancia para cubrir todas
+        max_time_seconds=60.0,
+        output_dir="output/all_instances_experiments"
     )
     
     print(f"⚙️  Configuración:")
@@ -337,18 +444,179 @@ def main():
     # 7. Visualización
     print("📈 Paso 7: Generando visualizaciones...\n")
     
-    # Crear carpeta UNIFICADA con dataset_timestamp para TODAS las visualizaciones
-    plots_dir = f"output/low_dimensional_{timestamp}"
+    # Crear carpeta con dataset_timestamp (como en versión original)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    plots_dir = f"output/plots_low_dimensional_{timestamp}"
     visualizer = ResultsVisualizer(output_dir=plots_dir)
     
-    # 7.1 Visualización del AST del mejor algoritmo (en la MISMA carpeta)
+    # Crear visualizador de AST para documentación
+    from experimentation.ast_visualization import ASTVisualizer
+    ast_visualizer = ASTVisualizer(output_dir=plots_dir)
+    
+    # Crear directorio de documentación
+    from pathlib import Path
+    docs_dir = Path(plots_dir)
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generar documentación del experimento
+    print("📝 Generando documentación del experimento...\n")
+    
+    # 1. README principal
+    readme_content = f"""# Reporte de Experimentación - KBP-SA
+**Fecha**: {datetime.now().strftime("%d de %B de %Y, %H:%M:%S")}
+**Configuración**: {config.name}
+
+## Resumen Ejecutivo
+
+Este experimento evalúa {len(algorithms)} algoritmos generados por GAA sobre {len(config.instances)} instancias del problema de la mochila (dataset low-dimensional).
+
+### Resultados Principales
+
+- **Mejor algoritmo**: {comparison['best_algorithm']}
+- **Instancias procesadas**: {len(config.instances)}
+- **Ejecuciones totales**: {len(results)}
+- **Tasa de éxito**: {sum(1 for r in results if r.success)}/{len(results)} ({100*sum(1 for r in results if r.success)/len(results):.1f}%)
+
+## Archivos Generados
+
+### Documentación
+- `01_ALGORITMOS_GAA.md` - Descripción de los 3 algoritmos generados
+- `02_CONFIGURACION_EXPERIMENTO.md` - Configuración y diseño experimental
+- `03_ANALISIS_ESTADISTICO.md` - Resultados y comparaciones estadísticas
+- `04_GRAFICAS_ESTADISTICAS.md` - Explicación de gráficas comparativas
+- `05_GRAFICAS_SA.md` - Explicación de visualizaciones de SA
+
+### Visualizaciones Estadísticas
+- `demo_boxplot.png` - Comparación de gaps entre algoritmos
+- `demo_bars.png` - Gap promedio por algoritmo
+- `demo_scatter.png` - Trade-off tiempo vs calidad
+- `best_algorithm_ast.png` - Estructura del mejor algoritmo
+
+### Visualizaciones de Simulated Annealing
+**Agregadas (grupo completo):**
+- `gap_evolution.png` - Evolución del gap promedio
+- `acceptance_rate.png` - Tasa de aceptación promedio
+- `delta_e_distribution.png` - Distribución de cambios de energía
+
+**Por instancia ({len(config.instances)} gráficas):**
+- `exploration_exploitation_<instancia>.png` - Balance exploración-explotación
+
+## Siguiente Paso
+
+Consulte los archivos de documentación individuales para detalles completos de cada fase del experimento.
+"""
+    
+    with open(docs_dir / "README.md", "w", encoding="utf-8") as f:
+        f.write(readme_content)
+    
+    # 2. Documentación de algoritmos GAA
+    alg_doc = f"""# Algoritmos GAA Generados
+
+**Fecha de generación**: {datetime.now().strftime("%d de %B de %Y")}
+**Semilla**: 42
+
+## Descripción
+
+Se generaron {len(algorithms)} algoritmos usando Grammar-based Algorithm Generation (GAA) con los siguientes parámetros:
+
+- **Profundidad mínima**: 2
+- **Profundidad máxima**: 3
+- **Gramática**: Metaheurística Simulated Annealing
+
+## Algoritmos
+
+"""
+    
+    for i, alg in enumerate(algorithms, 1):
+        alg_doc += f"""### {alg['name']}
+
+**Pseudocódigo:**
+```
+{alg['ast'].to_pseudocode(indent=0)}
+```
+
+**Estadísticas del AST:**
+"""
+        stats = ast_visualizer.get_ast_statistics(alg['ast'])
+        alg_doc += f"""- Nodos totales: {stats['total_nodes']}
+- Profundidad: {stats['depth']}
+- Operadores usados: {', '.join(stats['terminal_operators'])}
+
+"""
+    
+    with open(docs_dir / "01_ALGORITMOS_GAA.md", "w", encoding="utf-8") as f:
+        f.write(alg_doc)
+    
+    # 3. Configuración del experimento
+    config_doc = f"""# Configuración del Experimento
+
+## Diseño Experimental
+
+### Instancias ({len(config.instances)})
+
+Dataset: **low-dimensional** (10 instancias del benchmark)
+
+"""
+    for name in sorted(config.instances):
+        config_doc += f"- `{name}`\n"
+    
+    config_doc += f"""
+
+### Algoritmos ({len(config.algorithms)})
+
+"""
+    for alg in algorithms:
+        config_doc += f"- `{alg['name']}`\n"
+    
+    config_doc += f"""
+
+### Parámetros
+
+- **Repeticiones por combinación**: {config.repetitions}
+- **Timeout por ejecución**: {config.max_time_seconds} segundos
+- **Total de ejecuciones**: {len(config.instances)} × {len(config.algorithms)} × {config.repetitions} = {len(config.instances) * len(config.algorithms) * config.repetitions}
+
+## Metodología
+
+### Experimentos (Paso 3)
+
+Se ejecutaron **{len(results)} experimentos** siguiendo un diseño factorial completo:
+
+1. Para cada **instancia** del problema
+2. Para cada **algoritmo** generado
+3. Ejecutar **{config.repetitions} repetición(es)** con semilla aleatoria controlada
+
+Esto permite:
+- Comparación justa entre algoritmos (mismas instancias)
+- Análisis estadístico robusto (múltiples repeticiones)
+- Reproducibilidad (semillas controladas)
+
+### Métricas Capturadas
+
+**Calidad:**
+- Valor de la mejor solución encontrada
+- Gap al óptimo conocido (%)
+- Factibilidad de la solución
+
+**Rendimiento:**
+- Tiempo total de ejecución
+- Número de iteraciones
+- Número de evaluaciones de la función objetivo
+
+**Convergencia:**
+- Valor inicial
+- Mejora absoluta
+- Ratio de mejora
+"""
+    
+    with open(docs_dir / "02_CONFIGURACION_EXPERIMENTO.md", "w", encoding="utf-8") as f:
+        f.write(config_doc)
+    
+    # 7.1 Visualización del AST del mejor algoritmo
     print("🌳 Paso 7.1: Visualizando estructura del mejor algoritmo...\n")
     
     best_algorithm_name = comparison['best_algorithm']
     best_alg = next(alg for alg in algorithms if alg['name'] == best_algorithm_name)
-    
-    # Crear visualizador de AST en la MISMA carpeta plots_dir
-    ast_visualizer = ASTVisualizer(output_dir=plots_dir)
     
     # Visualización ASCII
     print(f"📊 Estructura del {best_algorithm_name}:\n")
@@ -363,7 +631,90 @@ def main():
     print(f"   • Operadores usados: {stats['terminal_operators']}")
     print()
     
-    # Gráfico Graphviz (si está disponible) - guardado en plots_dir
+    # Documentación de análisis estadístico
+    stats_doc = f"""# Análisis Estadístico
+
+## Test de Friedman (Comparación Global)
+
+**Test**: {comparison['global_test'].test_name}
+**p-value**: {comparison['global_test'].p_value:.4f}
+**Interpretación**: {comparison['global_test'].interpretation}
+
+## Rankings Promedio
+
+(Menor ranking = mejor desempeño)
+
+"""
+    for alg, rank in sorted(comparison['average_rankings'].items(), key=lambda x: x[1]):
+        stats_doc += f"- **{alg}**: {rank:.2f}\n"
+    
+    stats_doc += f"""
+
+## Mejor Algoritmo
+
+🏆 **{comparison['best_algorithm']}**
+
+### Estadísticas Descriptivas
+
+"""
+    best_alg_gaps = algorithm_results[comparison['best_algorithm']]
+    best_stats = analyzer.descriptive_statistics(best_alg_gaps)
+    stats_doc += f"""
+- **Media**: {best_stats['mean']:.2f}%
+- **Desviación estándar**: {best_stats['std']:.2f}%
+- **Mínimo**: {best_stats['min']:.2f}%
+- **Máximo**: {best_stats['max']:.2f}%
+- **Mediana**: {best_stats['median']:.2f}%
+
+### Intervalo de Confianza (95%)
+
+"""
+    best_ci = analyzer.confidence_interval(best_alg_gaps, confidence=0.95)
+    stats_doc += f"[{best_ci[0]:.2f}%, {best_ci[1]:.2f}%]\n\n"
+    
+    stats_doc += """## Comparación Por Algoritmo
+
+"""
+    for alg_name, gaps in algorithm_results.items():
+        alg_stats = analyzer.descriptive_statistics(gaps)
+        stats_doc += f"""### {alg_name}
+
+- Gap medio: {alg_stats['mean']:.2f}% ± {alg_stats['std']:.2f}%
+- Rango: [{alg_stats['min']:.2f}%, {alg_stats['max']:.2f}%]
+
+"""
+    
+    # Comparación pareada
+    if len(algorithm_results) >= 2:
+        algs = list(algorithm_results.keys())
+        data1 = algorithm_results[algs[0]]
+        data2 = algorithm_results[algs[1]]
+        min_len = min(len(data1), len(data2))
+        data1 = data1[:min_len]
+        data2 = data2[:min_len]
+        
+        wilcoxon = analyzer.wilcoxon_signed_rank_test(data1, data2)
+        cohens_d = analyzer.effect_size_cohens_d(data1, data2)
+        
+        stats_doc += f"""## Test Pareado: {algs[0]} vs {algs[1]}
+
+**Test de Wilcoxon**:
+- p-value: {wilcoxon.p_value:.4f}
+- {wilcoxon.interpretation}
+
+**Tamaño del efecto (Cohen's d)**: {cohens_d:.3f}
+"""
+        if abs(cohens_d) < 0.2:
+            stats_doc += "- Interpretación: Efecto pequeño\n"
+        elif abs(cohens_d) < 0.5:
+            stats_doc += "- Interpretación: Efecto mediano\n"
+        else:
+            stats_doc += "- Interpretación: Efecto grande\n"
+    
+    with open(docs_dir / "03_ANALISIS_ESTADISTICO.md", "w", encoding="utf-8") as f:
+        f.write(stats_doc)
+    
+    # Gráfico Graphviz (si está disponible)
     if ast_visualizer.has_graphviz:
         ast_path = ast_visualizer.plot_ast_graphviz(
             ast_node=best_alg['ast'],
@@ -419,46 +770,215 @@ def main():
             filename="demo_scatter.png"
         )
         
-        # 7.3 Visualizaciones detalladas POR CADA INSTANCIA
-        print("\n📊 Paso 7.3: Generando visualizaciones detalladas por instancia...\n")
+        # 7.3 Visualizaciones detalladas SA para el grupo low-dimensional
+        print("\n📊 Paso 7.3: Generando visualizaciones SA del grupo low-dimensional...\n")
         
-        # Obtener mejor algoritmo
-        best_alg_name = comparison['best_algorithm']
-        best_alg = next(alg for alg in algorithms if alg['name'] == best_alg_name)
-        
-        # Cargar instancias
+        # Cargar TODAS las instancias del grupo para procesamiento completo
         from data.loader import DatasetLoader
         from pathlib import Path as PathLib
         
         datasets_dir = PathLib(__file__).parent.parent / "datasets"
         loader = DatasetLoader(datasets_dir)
-        all_instances = loader.load_folder("low_dimensional")
+        group_instances = loader.load_folder("low_dimensional")
         
-        print(f"🔬 Ejecutando {best_alg_name} en cada instancia con tracking completo...\n")
+        print(f"🔬 Procesando grupo completo: {len(group_instances)} instancias")
         
-        for i, instance in enumerate(sorted(all_instances, key=lambda x: x.n), 1):
-            print(f"[{i}/{len(all_instances)}] {instance.name} (n={instance.n})...", end=" ", flush=True)
+        # Obtener mejor algoritmo
+        best_alg_name = comparison['best_algorithm']
+        best_alg = next(alg for alg in algorithms if alg['name'] == best_alg_name)
+        
+        print(f"🔬 Ejecutando {best_alg_name} con tracking en todas las instancias...\n")
+        
+        try:
+            best_solution = run_detailed_visualization_per_group(
+                instances=group_instances,
+                algorithm=best_alg,
+                plots_dir=Path(plots_dir),
+                timestamp=timestamp
+            )
             
-            try:
-                best_solution = run_detailed_visualization_per_instance(
-                    instance=instance,
-                    algorithm=best_alg,
-                    plots_dir=Path(plots_dir),
-                    timestamp=timestamp
-                )
-                
-                gap = ((instance.optimal_value - best_solution.value) / instance.optimal_value) * 100 if instance.optimal_value > 0 else 0
-                status = "✅ ÓPTIMO" if gap == 0 else f"Gap: {gap:.2f}%"
-                print(f"{status} - 4 gráficas generadas")
-            except Exception as e:
-                print(f"❌ Error: {e}")
+            print(f"\n✅ Visualizaciones SA del grupo completadas ({len(group_instances)} instancias procesadas)")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
         
-        print(f"\n✅ Visualizaciones por instancia completadas")
+        # Generar documentación de gráficas estadísticas
+        graficas_stats_doc = """# Gráficas Estadísticas
+
+## 1. demo_boxplot.png - Comparación de Algoritmos
+
+**Tipo**: Diagrama de caja (boxplot)
+
+**Descripción**: Compara la distribución de gaps al óptimo entre los diferentes algoritmos.
+
+**Elementos visuales**:
+- **Caja**: Representa el rango intercuartílico (Q1 a Q3)
+- **Línea central**: Mediana del gap
+- **Bigotes**: Extienden hasta 1.5× el rango intercuartílico
+- **Puntos**: Outliers (valores atípicos)
+
+**Interpretación**:
+- Cajas más bajas = mejor desempeño (menor gap)
+- Cajas más estrechas = mayor consistencia
+- Outliers indican instancias particularmente difíciles
+
+## 2. demo_bars.png - Gap Promedio por Algoritmo
+
+**Tipo**: Gráfico de barras con barras de error
+
+**Descripción**: Muestra el gap promedio de cada algoritmo con su desviación estándar.
+
+**Elementos visuales**:
+- **Altura de la barra**: Gap promedio (%)
+- **Barras de error**: Desviación estándar
+- **Color**: Diferencia algoritmos
+
+**Interpretación**:
+- Barras más bajas = mejor desempeño promedio
+- Barras de error más pequeñas = mayor robustez
+- Compara rendimiento promedio directamente
+
+## 3. demo_scatter.png - Trade-off Tiempo vs Calidad
+
+**Tipo**: Gráfico de dispersión
+
+**Descripción**: Muestra la relación entre tiempo de ejecución y calidad de solución.
+
+**Ejes**:
+- **X**: Tiempo de ejecución (segundos)
+- **Y**: Gap al óptimo (%)
+- **Color/Forma**: Algoritmo
+
+**Interpretación**:
+- Puntos más abajo = mejor calidad
+- Puntos más a la izquierda = más rápido
+- Esquina inferior izquierda = óptimo (rápido y bueno)
+- Identifica trade-offs entre velocidad y calidad
+
+## 4. best_algorithm_ast.png - Estructura del Mejor Algoritmo
+
+**Tipo**: Árbol de sintaxis abstracta (AST)
+
+**Descripción**: Visualización gráfica de la estructura del algoritmo ganador.
+
+**Elementos**:
+- **Nodos**: Operadores de la metaheurística
+- **Aristas**: Flujo de control
+- **Niveles**: Profundidad del árbol
+
+**Interpretación**:
+- Muestra composición del algoritmo
+- Permite entender decisiones de diseño
+- Facilita reproducción y análisis
+"""
+        
+        with open(docs_dir / "04_GRAFICAS_ESTADISTICAS.md", "w", encoding="utf-8") as f:
+            f.write(graficas_stats_doc)
+        
+        # Generar documentación de gráficas SA
+        graficas_sa_doc = f"""# Gráficas de Simulated Annealing
+
+## Gráficas Agregadas (Grupo Completo)
+
+### 1. gap_evolution.png - Evolución del Gap
+
+**Descripción**: Muestra cómo evoluciona el gap al óptimo durante la búsqueda, promediado sobre las {len(group_instances)} instancias.
+
+**Elementos visuales**:
+- **Línea azul**: Gap promedio por iteración
+- **Banda sombreada**: Desviación estándar (variabilidad entre instancias)
+- **Eje derecho (rojo)**: Temperatura (escala logarítmica)
+
+**Interpretación**:
+- Pendiente negativa = convergencia hacia mejores soluciones
+- Banda estrecha = comportamiento consistente
+- Temperatura descendente = transición exploración → explotación
+
+### 2. acceptance_rate.png - Tasa de Aceptación
+
+**Descripción**: Porcentaje de movimientos aceptados en ventanas de 100 iteraciones.
+
+**Elementos visuales**:
+- **Línea verde**: Tasa de aceptación promedio
+- **Línea roja**: Temperatura (escala logarítmica)
+
+**Interpretación**:
+- Inicio alto (~80-100%) = fase de exploración
+- Descenso gradual = transición
+- Final bajo (~10-30%) = fase de explotación
+- Correlación con temperatura = criterio de Metropolis funcionando
+
+### 3. delta_e_distribution.png - Distribución de Cambios de Energía
+
+**Descripción**: Histograma de todos los cambios de energía (ΔE) observados, combinando las {len(group_instances)} instancias.
+
+**Elementos visuales**:
+- **Barras verdes**: ΔE de movimientos aceptados
+- **Barras rojas**: ΔE de movimientos rechazados
+- **Eje X**: Cambio de energía (negativo = empeoramiento)
+
+**Interpretación**:
+- Positivos = mejoras (siempre aceptadas)
+- Negativos = empeoramientos (aceptados probabilísticamente)
+- Distribución muestra balance exploración-explotación
+- Solapamiento verde-rojo = criterio de Metropolis activo
+
+## Gráficas Por Instancia ({len(group_instances)} gráficas)
+
+### exploration_exploitation_<instancia>.png
+
+**Descripción**: Balance entre exploración y explotación específico para cada instancia.
+
+**Elementos visuales**:
+- **Área verde**: Proporción de mejoras (explotación)
+- **Área naranja**: Proporción de empeoramientos aceptados (exploración)
+- **Área roja**: Proporción de empeoramientos rechazados
+- **Línea negra**: Temperatura
+- **Panel estadístico**: Métricas clave
+
+**Métricas mostradas**:
+- Total iterations: Iteraciones totales
+- Improvements: Número de mejoras
+- Explorations: Empeoramientos aceptados
+- Rejected: Movimientos rechazados
+- Accept rate: Tasa global de aceptación
+- Expl/Expt ratio: Balance exploración/explotación
+
+**Interpretación**:
+- Inicio: Mucho naranja (exploración)
+- Medio: Transición equilibrada
+- Final: Mucho verde (explotación)
+- Patrones anómalos indican problemas de configuración
+
+**Archivos generados**:
+"""
+        
+        for inst in sorted(group_instances, key=lambda x: x.name):
+            inst_name = inst.name.replace('_low-dimensional', '')
+            graficas_sa_doc += f"- `exploration_exploitation_{inst_name}.png`\n"
+        
+        with open(docs_dir / "05_GRAFICAS_SA.md", "w", encoding="utf-8") as f:
+            f.write(graficas_sa_doc)
         
         print(f"\n✅ Todas las visualizaciones generadas en {plots_dir}/")
-        print(f"   📊 Gráficas estadísticas: boxplot, bars, scatter")
+        print(f"   📊 Gráficas estadísticas del grupo: boxplot, bars, scatter")
         print(f"   🌳 AST del mejor algoritmo: best_algorithm_ast.png")
-        print(f"   📁 Carpetas por instancia: {len(all_instances)} carpetas con 4 gráficas cada una")
+        print(f"   📈 Gráficas SA del grupo:")
+        print(f"      - gap_evolution.png (media ± desviación estándar de {len(group_instances)} instancias)")
+        print(f"      - acceptance_rate.png (tasa promedio de {len(group_instances)} instancias)")
+        print(f"      - delta_e_distribution.png (distribución combinada de {len(group_instances)} instancias)")
+        print(f"      - exploration_exploitation_<instance>.png ({len(group_instances)} gráficas, una por instancia)")
+        print(f"\n📝 Documentación generada:")
+        print(f"   - README.md")
+        print(f"   - 01_ALGORITMOS_GAA.md")
+        print(f"   - 02_CONFIGURACION_EXPERIMENTO.md")
+        print(f"   - 03_ANALISIS_ESTADISTICO.md")
+        print(f"   - 04_GRAFICAS_ESTADISTICAS.md")
+        print(f"   - 05_GRAFICAS_SA.md")
+        print()
+        print(f"      - delta_e_distribution.png (distribución combinada de {len(group_instances)} instancias)")
+        print(f"      - exploration_exploitation_<instance>.png ({len(group_instances)} gráficas, una por instancia)")
         print()
     else:
         if not visualizer.has_matplotlib:

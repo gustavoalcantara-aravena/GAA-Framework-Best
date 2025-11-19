@@ -1,1 +1,1 @@
-Faltan ploteos de error cuadrático actual vs iteración; Mejor error cuadrático versus iteración; Delta E vs iteración, tasa de aceptación versus iteración; Evolución de la temperatura vs Iteración; % utilización de la mochila vs iteración, valor total vs iteración
+(borrador) Faltan ploteos de error cuadrático actual vs iteración; Mejor error cuadrático versus iteración; Delta E vs iteración, tasa de aceptación versus iteración; Evolución de la temperatura vs Iteración; % utilización de la mochila vs iteración, valor total vs iteración
